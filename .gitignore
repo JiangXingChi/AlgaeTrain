@@ -1,0 +1,38 @@
+# ======================
+# Android / Gradle
+# ======================
+*.iml
+.gradle/
+build/
+*/build/
+local.properties
+
+# IDE
+.idea/
+*.iws
+*.ipr
+.DS_Store
+
+# Kotlin
+.kotlin/
+
+# Android SDK (本地 SDK，不提交)
+android-sdk/
+
+# APK / 签名文件
+*.apk
+*.aab
+*.jks
+*.keystore
+
+# 编译生成
+captures/
+.externalNativeBuild/
+.cxx/
+
+# ======================
+# 忽略规则说明：
+# - images/ 目录保留（训练图片是项目核心数据）
+# - algae_data.json 保留（数据集）
+# - 所有源码保留
+# ======================
