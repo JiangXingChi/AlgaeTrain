@@ -138,7 +138,7 @@ private fun TrainTab(vm: TrainViewModel) {
 @Composable
 private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
     val cs = MaterialTheme.colorScheme
-    var showResetProgress by remember { mutableStateOf(false) }
+    var resetBook by remember { mutableStateOf<String?>(null) }
     var showResetCheckIn by remember { mutableStateOf(false) }
     var showQuotaDialog by remember { mutableStateOf(false) }
     var quotaInput by remember { mutableStateOf("") }
@@ -261,13 +261,20 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
                 Text("当前 新学:复习 = 1:${vm.reviewRatio}",
                     fontSize = 12.sp, fontWeight = FontWeight.Bold, color = cs.primary)
                 Spacer(Modifier.height(4.dp))
+                Text("重置", fontSize = 13.sp, color = cs.outline)
+                Spacer(Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("重置图谱：清空两本图谱的学习进度", Modifier.weight(1f),
+                    Text("浮游植物图谱进度", Modifier.weight(1f),
                         fontSize = 12.sp, color = cs.outline)
-                    TextButton(onClick = { showResetProgress = true }) { Text("重置", color = cs.error) }
+                    TextButton(onClick = { resetBook = "algae" }) { Text("重置", color = cs.error) }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("重置打卡：清空打卡记录和连续天数", Modifier.weight(1f),
+                    Text("浮游动物图谱进度", Modifier.weight(1f),
+                        fontSize = 12.sp, color = cs.outline)
+                    TextButton(onClick = { resetBook = "zooplankton" }) { Text("重置", color = cs.error) }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("打卡记录和连续天数", Modifier.weight(1f),
                         fontSize = 12.sp, color = cs.outline)
                     TextButton(onClick = { showResetCheckIn = true }) { Text("重置", color = cs.error) }
                 }
@@ -277,12 +284,16 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
         item { Spacer(Modifier.height(16.dp)) }
     }
 
-    if (showResetProgress) AlertDialog(
-        onDismissRequest = { showResetProgress = false },
-        title = { Text("确认重置图谱") },
-        text = { Text("两本图谱的学习进度和复习计划将丢失（打卡记录保留），确定？") },
-        confirmButton = { TextButton({ vm.restart(); showResetProgress = false }) { Text("确定") } },
-        dismissButton = { TextButton({ showResetProgress = false }) { Text("取消") } })
+    resetBook?.let { mode ->
+        AlertDialog(
+            onDismissRequest = { resetBook = null },
+            title = { Text("确认重置图谱") },
+            text = { Text(
+                if (mode == "algae") "浮游植物图谱的学习进度和复习计划将丢失（打卡记录保留），确定？"
+                else "浮游动物图谱的学习进度和复习计划将丢失（打卡记录保留），确定？") },
+            confirmButton = { TextButton({ vm.restartBook(mode); resetBook = null }) { Text("确定") } },
+            dismissButton = { TextButton({ resetBook = null }) { Text("取消") } })
+    }
 
     if (showResetCheckIn) AlertDialog(
         onDismissRequest = { showResetCheckIn = false },

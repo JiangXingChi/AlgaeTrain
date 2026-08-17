@@ -268,13 +268,11 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         saveQueue()
     }
 
-    fun restart() {
-        val app = getApplication<Application>()
-        listOf("algae_train", "zoo_train").forEach { name ->
-            app.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear().apply()
-        }
+    // 重置指定图谱的学习进度（打卡记录保留；非当前书不影响当前队列）
+    fun restartBook(mode: String) {
+        prefsFor(mode).edit().clear().apply()
         history.clear()
-        initQueue()
+        if (mode == currentMode) initQueue()
     }
 
     // 重置打卡记录：清空打卡日期与连续天数（学习进度保留）
