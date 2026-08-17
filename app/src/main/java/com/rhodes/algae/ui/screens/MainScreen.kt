@@ -241,10 +241,11 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
                         label = { Text("自定义", fontSize = 12.sp) },
                         modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp))
                 }
-                if (vm.dailyQuota !in TrainViewModel.QUOTA_OPTIONS) {
-                    Spacer(Modifier.height(4.dp))
-                    Text("当前 ${vm.dailyQuota} 张/天（自定义）", fontSize = 11.sp, color = cs.primary)
-                }
+                // 始终显示当前实际新卡量（档位/自定义都可见）
+                Spacer(Modifier.height(4.dp))
+                Text("当前 ${vm.dailyQuota} 张/天" +
+                    if (vm.dailyQuota !in TrainViewModel.QUOTA_OPTIONS) "（自定义）" else "",
+                    fontSize = 12.sp, fontWeight = FontWeight.Bold, color = cs.primary)
                 Spacer(Modifier.height(10.dp))
                 Text("新学 : 复习", fontSize = 13.sp, color = cs.outline)
                 Spacer(Modifier.height(6.dp))
