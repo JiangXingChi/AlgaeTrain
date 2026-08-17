@@ -553,7 +553,7 @@ private fun AboutTab(vm: TrainViewModel) {
             Spacer(Modifier.height(8.dp))
             Text("📗 《中国内陆水域常见藻类图谱》", fontWeight = FontWeight.Bold, color = cs.onSurface)
             Text("📘 《澳门常见淡水藻类图谱》", fontWeight = FontWeight.Bold, color = cs.onSurface)
-            Text("📘 《中国流域常见水生生物图集》", fontWeight = FontWeight.Bold, color = cs.onSurface)
+            Text("📙 《中国流域常见水生生物图集》", fontWeight = FontWeight.Bold, color = cs.onSurface)
             Spacer(Modifier.height(8.dp))
             HorizontalDivider()
             Spacer(Modifier.height(8.dp))
