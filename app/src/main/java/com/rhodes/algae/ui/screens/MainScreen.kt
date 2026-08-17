@@ -138,7 +138,8 @@ private fun TrainTab(vm: TrainViewModel) {
 @Composable
 private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
     val cs = MaterialTheme.colorScheme
-    var showRestart by remember { mutableStateOf(false) }
+    var showResetProgress by remember { mutableStateOf(false) }
+    var showResetCheckIn by remember { mutableStateOf(false) }
     var showQuotaDialog by remember { mutableStateOf(false) }
     var quotaInput by remember { mutableStateOf("") }
 
@@ -261,9 +262,14 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
                     fontSize = 12.sp, fontWeight = FontWeight.Bold, color = cs.primary)
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("重置：清空两本图谱的学习进度", Modifier.weight(1f),
+                    Text("重置图谱：清空两本图谱的学习进度", Modifier.weight(1f),
                         fontSize = 12.sp, color = cs.outline)
-                    TextButton(onClick = { showRestart = true }) { Text("重置", color = cs.error) }
+                    TextButton(onClick = { showResetProgress = true }) { Text("重置", color = cs.error) }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("重置打卡：清空打卡记录和连续天数", Modifier.weight(1f),
+                        fontSize = 12.sp, color = cs.outline)
+                    TextButton(onClick = { showResetCheckIn = true }) { Text("重置", color = cs.error) }
                 }
             }
         }
@@ -271,12 +277,19 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
         item { Spacer(Modifier.height(16.dp)) }
     }
 
-    if (showRestart) AlertDialog(
-        onDismissRequest = { showRestart = false },
-        title = { Text("确认重新开始") },
+    if (showResetProgress) AlertDialog(
+        onDismissRequest = { showResetProgress = false },
+        title = { Text("确认重置图谱") },
         text = { Text("两本图谱的学习进度和复习计划将丢失（打卡记录保留），确定？") },
-        confirmButton = { TextButton({ vm.restart(); showRestart = false }) { Text("确定") } },
-        dismissButton = { TextButton({ showRestart = false }) { Text("取消") } })
+        confirmButton = { TextButton({ vm.restart(); showResetProgress = false }) { Text("确定") } },
+        dismissButton = { TextButton({ showResetProgress = false }) { Text("取消") } })
+
+    if (showResetCheckIn) AlertDialog(
+        onDismissRequest = { showResetCheckIn = false },
+        title = { Text("确认重置打卡") },
+        text = { Text("打卡记录和连续天数将清空（学习进度保留），确定？") },
+        confirmButton = { TextButton({ vm.restartCheckIn(); showResetCheckIn = false }) { Text("确定") } },
+        dismissButton = { TextButton({ showResetCheckIn = false }) { Text("取消") } })
 
     if (showQuotaDialog) AlertDialog(
         onDismissRequest = { showQuotaDialog = false },

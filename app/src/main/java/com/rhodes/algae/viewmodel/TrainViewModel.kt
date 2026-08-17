@@ -277,6 +277,13 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         initQueue()
     }
 
+    // 重置打卡记录：清空打卡日期与连续天数（学习进度保留）
+    fun restartCheckIn() {
+        appPrefs.edit().remove("checkin_dates").apply()
+        checkinCache = emptyList()
+        checkinVersion++
+    }
+
     // ── 过滤器（预留未用：UI 未调用，按门类筛选整本书）──
     fun selectPhylum(p: String?) {
         phylumFilter = p
