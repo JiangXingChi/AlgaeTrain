@@ -86,7 +86,7 @@ TrainViewModel               ← 状态管理器（唯一 ViewModel）
 
 ### 每日打卡（V0.4.0 引入）
 
-- 设置存 `app_settings`：`daily_quota`（默认 20，快捷档 10/20/30 + **自定义 1-100** 输入）、`review_ratio`（1:1/1:2/1:3，默认 1:2）
+- 设置存 `app_settings`：`daily_quota`（默认 25，快捷档 25/50 + **自定义 1-100** 输入）、`review_ratio`（1:1/1:2/1:3，默认 1:2）
 - 复习上限 = 配额 × 比例，超出的到期卡顺延明天
 - **打卡条件**：今日新卡配额完成即打卡（复习卡不阻塞）
 - 打卡记录：`app_settings.checkin_dates`（JSONArray<epochDay>），连续天数从今天/昨天往回数
