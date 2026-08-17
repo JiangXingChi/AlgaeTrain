@@ -1,0 +1,103 @@
+package com.rhodes.algae.ui.screens
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.rhodes.algae.data.AlgaeItem
+import com.rhodes.algae.viewmodel.TrainViewModel
+
+/**
+ * 图谱书架：像选词书一样选择「浮游植物图谱」或「浮游动物图谱」。
+ * 全屏覆盖层，由 MainScreen 控制显隐。
+ */
+@Composable
+fun BookShelfScreen(vm: TrainViewModel, canClose: Boolean, onClose: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Box(Modifier.fillMaxSize().background(cs.background)) {
+        Column(Modifier.fillMaxSize()) {
+            // Top bar
+            Row(Modifier.fillMaxWidth().background(cs.primary)
+                .padding(horizontal = 4.dp, vertical = 4.dp)
+                .windowInsetsPadding(WindowInsets.statusBars),
+                verticalAlignment = Alignment.CenterVertically) {
+                if (canClose) {
+                    IconButton(onClick = onClose) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回", tint = cs.onPrimary)
+                    }
+                } else {
+                    Spacer(Modifier.width(16.dp))
+                }
+                Text("📚 我的图谱书", Modifier.weight(1f),
+                    fontSize = 20.sp, fontWeight = FontWeight.Bold, color = cs.onPrimary)
+                Spacer(Modifier.width(16.dp))
+            }
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                item {
+                    BookCard(vm, "algae", "🌿", "浮游植物图谱", vm.allAlgaeItems, onClose)
+                }
+                item {
+                    BookCard(vm, "zooplankton", "🦠", "浮游动物图谱", vm.allZooItems, onClose)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BookCard(vm: TrainViewModel, mode: String, emoji: String, title: String,
+                     items: List<AlgaeItem>, onClose: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val selected = vm.currentMode == mode
+    val phylumCount = items.map { it.phylum }.distinct().size
+    val known = items.count { vm.isKnownFor(mode, it.id) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable { vm.switchMode(mode); onClose() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) cs.primaryContainer else cs.surfaceVariant)
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(56.dp).clip(RoundedCornerShape(12.dp)).background(cs.primary),
+                contentAlignment = Alignment.Center) {
+                Text(emoji, fontSize = 28.sp)
+            }
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = cs.onSurface)
+                    if (selected) {
+                        Spacer(Modifier.width(8.dp))
+                        Surface(shape = RoundedCornerShape(8.dp), color = cs.primary) {
+                            Text("学习中", Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                fontSize = 11.sp, fontWeight = FontWeight.Bold, color = cs.onPrimary)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                Text("$phylumCount 门 · ${items.size} 图", fontSize = 13.sp, color = cs.outline)
+                Spacer(Modifier.height(8.dp))
+                LinearProgressIndicator(
+                    progress = { if (items.isEmpty()) 0f else known.toFloat() / items.size },
+                    Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                    color = cs.primary, trackColor = cs.surface)
+                Spacer(Modifier.height(4.dp))
+                Text("已掌握 $known/${items.size}", fontSize = 12.sp, color = cs.outline)
+            }
+        }
+    }
+}

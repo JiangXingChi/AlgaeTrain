@@ -11,41 +11,70 @@ import androidx.lifecycle.AndroidViewModel
 import com.rhodes.algae.data.AlgaeItem
 import org.json.JSONArray
 import org.json.JSONObject
+import java.time.LocalDate
 
 class TrainViewModel(application: Application) : AndroidViewModel(application) {
 
-    // ── Mode ──
+    companion object {
+        // 间隔表：等级 0→1 天，1→2 天，2→4 天，3→7 天，4→15 天，5→30 天（艾宾浩斯遗忘曲线复习节点）
+        val INTERVAL_DAYS = intArrayOf(1, 2, 4, 7, 15, 30)
+        val QUOTA_OPTIONS = listOf(5, 10, 15, 20, 30, 50)
+        const val DEFAULT_QUOTA = 20
+        val RATIO_OPTIONS = listOf(1, 2, 3) // 新学:复习 = 1:1 / 1:2 / 1:3
+        const val DEFAULT_RATIO = 2
+    }
+
+    // ── Book / Mode ──
     var currentMode by mutableStateOf("algae"); private set
     val displayPrefix get() = if (currentMode == "algae") "images/" else "zooplankton/"
+    val bookTitle get() = if (currentMode == "algae") "浮游植物图谱" else "浮游动物图谱"
 
     // ── Persistence ──
     private val prefsAlgae = application.getSharedPreferences("algae_train", Context.MODE_PRIVATE)
     private val prefsZoo = application.getSharedPreferences("zoo_train", Context.MODE_PRIVATE)
-    private fun prefs() = if (currentMode == "algae") prefsAlgae else prefsZoo
+    private val appPrefs = application.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+    private fun prefsFor(mode: String) = if (mode == "algae") prefsAlgae else prefsZoo
+    private fun prefs() = prefsFor(currentMode)
+    private fun today() = LocalDate.now().toEpochDay()
+
+    // ── 打卡设置 ──
+    var dailyQuota by mutableIntStateOf(appPrefs.getInt("daily_quota", DEFAULT_QUOTA)); private set
+    var reviewRatio by mutableIntStateOf(appPrefs.getInt("review_ratio", DEFAULT_RATIO)); private set
+    val bookSelected get() = appPrefs.contains("selected_book")
 
     // ── Data ──
     var allAlgaeItems = emptyList<AlgaeItem>(); private set
     var allZooItems = emptyList<AlgaeItem>(); private set
     val allItems get() = if (currentMode == "algae") allAlgaeItems else allZooItems
 
-    // ── Card state (queue-based, no random repeating) ──
+    // ── Card state ──
     var currentItem by mutableStateOf<AlgaeItem?>(null); private set
     var flipped by mutableStateOf(false); private set
     private var cardQueue = emptyList<AlgaeItem>()
+    private var queueDate = 0L
 
     // ── Undo ──
-    private data class Snap(val item: AlgaeItem, val wasKnown: Boolean, val wasErr: Int, val marked: Boolean)
+    private data class Snap(val item: AlgaeItem, val wasKnown: Boolean, val wasErr: Int,
+                            val wasLevel: Int, val wasDue: Long, val marked: Boolean, val wasNew: Boolean)
     private val history = mutableListOf<Snap>()
     val canUndo get() = history.isNotEmpty()
 
     // ── Stats ──
-    var seenCount by mutableIntStateOf(0); private set
     var knownCount by mutableIntStateOf(0); private set
     var isLoading by mutableStateOf(false); private set
 
-    // ── Filters ──
+    // ── 今日任务进度 ──
+    var newTotal by mutableIntStateOf(0); private set
+    var newDone by mutableIntStateOf(0); private set
+    var reviewTotal by mutableIntStateOf(0); private set
+    var reviewDone by mutableIntStateOf(0); private set
+
+    // ── Filters（预留未用）──
     var filter by mutableStateOf("all"); private set
     var phylumFilter by mutableStateOf<String?>(null); private set
+
+    // ── 打卡 ──
+    var checkinVersion by mutableIntStateOf(0); private set
 
     // ── Load ──
     fun loadData() {
@@ -53,47 +82,91 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         isLoading = true
         try {
             val app = getApplication<Application>()
-            allAlgaeItems = parseItems(app.assets.open("algae_data.json").reader().readText())
+            allAlgaeItems = parseItems(app.assets.open("algae_data.json").reader().readText(), "algae")
             try {
-                allZooItems = parseItems(app.assets.open("zooplankton_data.json").reader().readText())
+                allZooItems = parseItems(app.assets.open("zooplankton_data.json").reader().readText(), "zooplankton")
             } catch (_: Exception) { Log.w("识浮游", "zooplankton_data.json missing") }
             initQueue()
         } catch (e: Exception) { Log.e("识浮游", "Load failed", e) }
         finally { isLoading = false }
     }
 
-    private fun parseItems(json: String) = JSONObject(json).getJSONArray("items").let { arr ->
+    private fun parseItems(json: String, mode: String) = JSONObject(json).getJSONArray("items").let { arr ->
         (0 until arr.length()).map { arr.getJSONObject(it).run {
-            AlgaeItem(getString("id"), getString("file"), getString("phylum"),
+            val id = getString("id")
+            migrateLegacy(id, mode)
+            AlgaeItem(id, getString("file"), getString("phylum"),
                 optString("phylumLatin"), getString("genus"), optString("genusLatin"),
-                getInt("number"), isKnown(getString("id")))
+                getInt("number"), isKnownFor(mode, id))
         }}
     }
 
-    fun switchMode(mode: String) {
-        if (mode == currentMode) return
-        currentMode = mode; history.clear(); seenCount = 0; initQueue()
+    // 旧版数据迁移：V0.3.1 及更早的"已掌握"标记 → SRS 初始 1 级（今天复习）
+    // 注：V0.3.1 浮游动物的 known 被误写入 algae_train，迁移时从那里读取
+    private fun migrateLegacy(id: String, mode: String) {
+        val p = prefsFor(mode)
+        if (p.contains("s_$id")) return
+        val known = if (mode == "zooplankton") prefsAlgae.getBoolean("k_$id", false)
+                    else p.getBoolean("k_$id", false)
+        if (known) p.edit().putInt("s_$id", 1).putLong("d_$id", today()).apply()
     }
 
-    // ── Persistence helpers ──
-    fun isKnown(id: String) = prefs().getBoolean("k_$id", false)
+    fun switchMode(mode: String) {
+        if (mode == currentMode) { appPrefs.edit().putString("selected_book", mode).apply(); return }
+        currentMode = mode
+        appPrefs.edit().putString("selected_book", mode).apply()
+        history.clear()
+        initQueue()
+    }
+
+    // ── SRS 状态（按书隔离）──
+    fun levelFor(mode: String, id: String) = prefsFor(mode).getInt("s_$id", 0)
+    fun level(id: String) = prefsFor(currentMode).getInt("s_$id", 0)
+    private fun setLevel(id: String, v: Int) = prefs().edit().putInt("s_$id", v).apply()
+    fun dueDayFor(mode: String, id: String) = prefsFor(mode).getLong("d_$id", 0L)
+    private fun setDue(id: String, d: Long) = prefs().edit().putLong("d_$id", d).apply()
+
+    // ── 掌握 / 错误 ──
+    fun isKnownFor(mode: String, id: String) = prefsFor(mode).getBoolean("k_$id", false)
+    fun isKnown(id: String) = prefsFor(currentMode).getBoolean("k_$id", false)
     private fun setKnown(id: String, v: Boolean) = prefs().edit().putBoolean("k_$id", v).apply()
     fun errCount(id: String) = prefs().getInt("e_$id", 0)
     private fun addErr(id: String) = prefs().edit().putInt("e_$id", errCount(id) + 1).apply()
 
-    // ── Queue ──
-    private fun buildPool(): List<AlgaeItem> {
-        var p = allItems
-        p = when (filter) { "known" -> p.filter { isKnown(it.id) }; "unknown" -> p.filter { !isKnown(it.id) }; else -> p }
-        phylumFilter?.let { pf -> p = p.filter { it.phylum == pf } }
-        return p
+    // ── 每日队列调度 ──
+    private fun initQueue() {
+        val t = today()
+        if (prefs().getLong("queue_date", 0L) == t) {
+            loadSavedQueue()
+        } else {
+            rebuildDailyQueue()
+        }
+        nextCard()
     }
 
-    private fun initQueue() {
-        val saved = loadQueue()
-        cardQueue = if (saved != null && saved.isNotEmpty()) saved
-        else buildPool().let { it.filter { !isKnown(it.id) }.shuffled() + it.filter { isKnown(it.id) }.shuffled() }
-        updateStats(); nextCard()
+    // 重建今日队列：到期复习卡（按到期先后）+ 今日新卡（配额内），先复习后新学
+    private fun rebuildDailyQueue() {
+        val t = today()
+        // 范围：整本书，或按过滤条件（预留：filter / phylumFilter）
+        var scope = allItems
+        scope = when (filter) {
+            "known" -> scope.filter { isKnown(it.id) }
+            "unknown" -> scope.filter { !isKnown(it.id) }
+            else -> scope
+        }
+        phylumFilter?.let { pf -> scope = scope.filter { it.phylum == pf } }
+        // 到期卡：已排期且到期（含忘记归零的卡，等级 0 但 d_ 已设置）
+        val due = scope.filter { dueDayFor(currentMode, it.id) != 0L && dueDayFor(currentMode, it.id) <= t }
+            .sortedBy { dueDayFor(currentMode, it.id) }
+        val reviews = due.take(dailyQuota * reviewRatio)
+        // 新卡：从未排期（d_ == 0）
+        val newCards = scope.filter { dueDayFor(currentMode, it.id) == 0L }
+            .shuffled().take(dailyQuota)
+        cardQueue = reviews + newCards
+        queueDate = t
+        newTotal = newCards.size; newDone = 0
+        reviewTotal = reviews.size; reviewDone = 0
+        saveQueue()
     }
 
     private fun loadQueue() = prefs().getString("queue_ids", null)?.let { ids ->
@@ -101,12 +174,27 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         catch (_: Exception) { null }
     }?.mapNotNull { id -> allItems.find { it.id == id } }
 
+    private fun loadSavedQueue() {
+        cardQueue = loadQueue() ?: emptyList()
+        newTotal = prefs().getInt("queue_new_total", 0)
+        newDone = prefs().getInt("queue_new_done", 0)
+        reviewTotal = prefs().getInt("queue_review_total", 0)
+        reviewDone = prefs().getInt("queue_review_done", 0)
+    }
+
     private fun saveQueue() {
-        prefs().edit().putString("queue_ids", JSONArray(cardQueue.map { it.id }).toString()).apply()
+        prefs().edit()
+            .putString("queue_ids", JSONArray(cardQueue.map { it.id }).toString())
+            .putLong("queue_date", queueDate)
+            .putInt("queue_new_total", newTotal)
+            .putInt("queue_new_done", newDone)
+            .putInt("queue_review_total", reviewTotal)
+            .putInt("queue_review_done", reviewDone)
+            .apply()
     }
 
     fun nextCard() {
-        if (cardQueue.isEmpty()) { currentItem = null; prefs().edit().remove("queue_ids").apply(); return }
+        if (cardQueue.isEmpty()) { currentItem = null; return }
         currentItem = cardQueue.first(); flipped = false
     }
 
@@ -114,16 +202,26 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun mark(known: Boolean) {
         val item = currentItem ?: return
-        history.add(Snap(item, isKnown(item.id), errCount(item.id), known))
+        val lv = level(item.id); val due = dueDayFor(currentMode, item.id)
+        val isNew = lv == 0 && due == 0L
+        history.add(Snap(item, isKnown(item.id), errCount(item.id), lv, due, known, isNew))
         setKnown(item.id, known)
         if (known) {
+            // 认识：等级 +1（封顶 5），按间隔表排下次复习
+            val nl = (lv + 1).coerceAtMost(5)
+            setLevel(item.id, nl)
+            setDue(item.id, today() + INTERVAL_DAYS[lv.coerceAtMost(5)])
             cardQueue = cardQueue.drop(1)
-            seenCount++; updateStats()
+            updateStats()
         } else {
+            // 不认识：等级归 0，明天再排，卡回队尾当天重练
             addErr(item.id); errorBookVersion++
-            cardQueue = cardQueue.drop(1) + item  // 不认识 → 移到队尾，不推进进度
-            seenCount++
+            setLevel(item.id, 0)
+            setDue(item.id, today() + 1)
+            cardQueue = cardQueue.drop(1) + item
         }
+        if (isNew) newDone++ else if (lv >= 1) reviewDone++
+        checkCheckIn()
         saveQueue(); nextCard()
     }
 
@@ -132,13 +230,13 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         val s = history.removeLast()
         setKnown(s.item.id, s.wasKnown)
         prefs().edit().putInt("e_${s.item.id}", s.wasErr).apply()
-        if (!s.marked) {
-            errorBookVersion++
-            cardQueue = cardQueue.dropLast(1)  // 从队尾移除"不认识"放回的那份
-        }
+        setLevel(s.item.id, s.wasLevel)
+        setDue(s.item.id, s.wasDue)
+        if (!s.marked) cardQueue = cardQueue.dropLast(1) // 移除"不认识"放回队尾的那份
         cardQueue = listOf(s.item) + cardQueue
         currentItem = s.item; flipped = false
-        seenCount = (seenCount - 1).coerceAtLeast(0)
+        if (s.wasNew) newDone = (newDone - 1).coerceAtLeast(0)
+        else if (s.wasLevel >= 1) reviewDone = (reviewDone - 1).coerceAtLeast(0)
         if (s.marked) updateStats()
         saveQueue()
     }
@@ -149,23 +247,61 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
             app.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear().apply()
         }
         history.clear()
-        cardQueue = buildPool().shuffled(); seenCount = 0
-        prefs().edit().remove("queue_ids").apply(); updateStats(); nextCard()
+        initQueue()
     }
 
+    // ── 过滤器（预留未用：UI 未调用，按门类筛选整本书）──
     fun selectPhylum(p: String?) {
         phylumFilter = p
-        cardQueue = buildPool().shuffled()
-        history.clear(); seenCount = 0
-        prefs().edit().remove("queue_ids").apply(); updateStats(); nextCard()
+        initQueue()
+    }
+
+    // ── 打卡设置（改后立即重建今日队列，当天生效）──
+    fun setQuota(q: Int) {
+        if (q == dailyQuota) return
+        dailyQuota = q
+        appPrefs.edit().putInt("daily_quota", q).apply()
+        rebuildDailyQueue(); nextCard()
+    }
+
+    fun setRatio(r: Int) {
+        if (r == reviewRatio) return
+        reviewRatio = r
+        appPrefs.edit().putInt("review_ratio", r).apply()
+        rebuildDailyQueue(); nextCard()
+    }
+
+    // ── 打卡 ──
+    fun isCheckedIn(day: Long = today()) = checkedInDays().contains(day)
+    fun streakDays(): Int {
+        val days = checkedInDays().toSet()
+        var d = today(); if (d !in days) d--
+        var n = 0
+        while (d in days) { n++; d-- }
+        return n
+    }
+    fun checkedInDays(): List<Long> = appPrefs.getString("checkin_dates", null)?.let { raw ->
+        try { JSONArray(raw).let { a -> (0 until a.length()).map { a.getLong(it) } } }
+        catch (_: Exception) { emptyList() }
+    } ?: emptyList()
+
+    private fun addCheckIn(day: Long) {
+        if (isCheckedIn(day)) return
+        val list = checkedInDays().toMutableList().apply { add(day) }
+        appPrefs.edit().putString("checkin_dates", JSONArray(list).toString()).apply()
+        checkinVersion++
+    }
+
+    // 今日新卡配额完成即打卡（复习卡不阻塞）
+    private fun checkCheckIn() {
+        val t = today()
+        if (newTotal > 0 && newDone >= newTotal && !isCheckedIn(t)) addCheckIn(t)
     }
 
     // ── Stats ──
     private fun updateStats() { knownCount = allItems.count { isKnown(it.id) } }
-    fun poolTotal() = buildPool().size
-    fun poolDone() = poolTotal() - cardQueue.size
 
-    // ── Error book ──
+    // ── 错题 ──
     var errorBookVersion by mutableIntStateOf(0); private set
     fun errorBook() = allItems.filter { errCount(it.id) > 0 }.map { it to errCount(it.id) }.sortedByDescending { it.second }
     fun clearErrors() {
