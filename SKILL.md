@@ -28,11 +28,12 @@ cd /home/teacat/Agent/Temp/App开发/识浮游
 
 ```
 MainActivity                 ← 入口，AlgaeTheme + TrainViewModel
-  └─ MainScreen              ← Scaffold + 3 标签页 + 2 个全屏 overlay
-       ├─ TrainTab           ← 训练页：当前书卡片 + 今日任务打卡区 + 闪卡
-       ├─ ErrorBookTab       ← 错题集：模式切换 + 列表 + 详情查看
+  └─ MainScreen              ← Scaffold + 3 标签页 + 3 个全屏 overlay
+       ├─ TrainTab           ← 训练页：当前书卡片 + 闪卡
+       ├─ CheckInTab         ← 打卡页：今日任务双进度条 + 月历 + 设置（配额/比例/重置）
        ├─ AboutTab           ← 关于：玩法说明 + 版本信息 + 版权
        ├─ BookShelfScreen    ← 图谱书架 overlay（像选词书一样换书）
+       ├─ ErrorBookOverlay   ← 错题集 overlay（顶栏📋图标打开，带返回）
        └─ FullscreenZoom     ← 错题全屏缩放 overlay
 ```
 
@@ -89,7 +90,7 @@ TrainViewModel               ← 状态管理器（唯一 ViewModel）
 - 复习上限 = 配额 × 比例，超出的到期卡顺延明天
 - **打卡条件**：今日新卡配额完成即打卡（复习卡不阻塞）
 - 打卡记录：`app_settings.checkin_dates`（JSONArray<epochDay>），连续天数从今天/昨天往回数
-- 漏签不补卡；月历在训练页打卡区（默认收起，点今日任务条展开）
+- 漏签不补卡；打卡页面在**独立 tab**（今日任务双进度条 + 打卡月历 + 每日新卡量 / 复习比例设置 + 重置），不占训练页空间
 
 ### 主题
 
