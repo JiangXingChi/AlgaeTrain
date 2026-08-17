@@ -59,7 +59,7 @@ fun MainScreen(vm: TrainViewModel) {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text(when (tab) { 0 -> "🌊 识浮游"; 1 -> "📅 打卡"; else -> "ℹ️ 关于" },
+                    title = { Text(when (tab) { 0 -> "📖 识浮游"; 1 -> "📅 打卡"; else -> "ℹ️ 关于" },
                         fontWeight = FontWeight.Bold) },
                     actions = { ThemeToggle(cs) },
                     colors = TopAppBarDefaults.topAppBarColors(
