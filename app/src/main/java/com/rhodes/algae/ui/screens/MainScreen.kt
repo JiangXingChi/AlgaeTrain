@@ -180,7 +180,7 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
                         Text("📚 我的图谱书", fontSize = 13.sp, color = cs.outline)
                         Spacer(Modifier.height(2.dp))
                         Text(vm.bookTitle, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cs.onSurface)
-                        Text("${vm.currentPhylumCount} 门 · ${vm.allItems.size} 图 · 点击换书",
+                        Text("${vm.currentPhylumCount} 门 · ${vm.allItems.size} 图 · 点击卡片可切换图谱书",
                             fontSize = 12.sp, color = cs.outline)
                         Spacer(Modifier.height(8.dp))
                         LinearProgressIndicator(
@@ -191,7 +191,12 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
                         Text("已掌握 ${vm.knownCount}/${vm.allItems.size} · 未掌握 ${vm.allItems.size - vm.knownCount}",
                             fontSize = 12.sp, color = cs.outline)
                     }
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "换书", tint = cs.outline)
+                    Spacer(Modifier.width(8.dp))
+                    // 显眼的切换按钮
+                    Surface(shape = RoundedCornerShape(10.dp), color = cs.primary) {
+                        Text("切换", Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                            fontSize = 13.sp, fontWeight = FontWeight.Bold, color = cs.onPrimary)
+                    }
                 }
             }
         }

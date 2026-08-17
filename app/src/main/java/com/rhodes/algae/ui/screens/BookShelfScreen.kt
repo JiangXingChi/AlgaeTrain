@@ -43,6 +43,10 @@ fun BookShelfScreen(vm: TrainViewModel, canClose: Boolean, onClose: () -> Unit) 
                     fontSize = 20.sp, fontWeight = FontWeight.Bold, color = cs.onPrimary)
                 Spacer(Modifier.width(16.dp))
             }
+            // 说明：让用户明白可以选不同的书
+            Text("选择一本图谱书开始学习，随时可以切换另一本（两本进度独立保存）",
+                Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                fontSize = 13.sp, color = cs.outline)
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 item {
@@ -79,13 +83,6 @@ private fun BookCard(vm: TrainViewModel, mode: String, emoji: String, title: Str
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = cs.onSurface)
-                    if (selected) {
-                        Spacer(Modifier.width(8.dp))
-                        Surface(shape = RoundedCornerShape(8.dp), color = cs.primary) {
-                            Text("学习中", Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                fontSize = 11.sp, fontWeight = FontWeight.Bold, color = cs.onPrimary)
-                        }
-                    }
                 }
                 Spacer(Modifier.height(4.dp))
                 Text("$phylumCount 门 · ${items.size} 图", fontSize = 13.sp, color = cs.outline)
@@ -96,6 +93,19 @@ private fun BookCard(vm: TrainViewModel, mode: String, emoji: String, title: Str
                     color = cs.primary, trackColor = cs.surface)
                 Spacer(Modifier.height(4.dp))
                 Text("已掌握 $known/${items.size}", fontSize = 12.sp, color = cs.outline)
+            }
+            Spacer(Modifier.width(12.dp))
+            // 明确的操作按钮：学习中 / 选择此书
+            if (selected) {
+                Surface(shape = RoundedCornerShape(10.dp), color = cs.primary) {
+                    Text("✓ 学习中", Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        fontSize = 13.sp, fontWeight = FontWeight.Bold, color = cs.onPrimary)
+                }
+            } else {
+                Surface(shape = RoundedCornerShape(10.dp), color = cs.secondaryContainer) {
+                    Text("选择此书", Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        fontSize = 13.sp, fontWeight = FontWeight.Bold, color = cs.onSecondaryContainer)
+                }
             }
         }
     }
