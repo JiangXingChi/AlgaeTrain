@@ -1,6 +1,5 @@
 package com.rhodes.algae.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -52,15 +51,20 @@ fun MainScreen(vm: TrainViewModel) {
     var zoomState by remember { mutableStateOf<Pair<List<Pair<AlgaeItem, Int>>, Int>?>(null) }
     // 首次启动未选书时自动进入图谱书架
     var showShelf by remember { mutableStateOf(!vm.bookSelected) }
+    var showErrorBook by remember { mutableStateOf(false) }
     val cs = MaterialTheme.colorScheme
 
     Box(Modifier.fillMaxSize()) {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text(when (tab) { 0 -> "🌊 识浮游"; 1 -> "📋 错题"; else -> "ℹ️ 关于" },
+                    title = { Text(when (tab) { 0 -> "🌊 识浮游"; 1 -> "📅 打卡"; else -> "ℹ️ 关于" },
                         fontWeight = FontWeight.Bold) },
-                    actions = { ThemeToggle(cs) },
+                    actions = {
+                        IconButton(onClick = { showErrorBook = true }) {
+                            Icon(Icons.AutoMirrored.Filled.List, "错题", tint = cs.onPrimary) }
+                        ThemeToggle(cs)
+                    },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = cs.primary, titleContentColor = cs.onPrimary)
                 )
@@ -70,7 +74,7 @@ fun MainScreen(vm: TrainViewModel) {
                     NavigationBarItem(selected = tab == 0, onClick = { tab = 0 },
                         icon = { Icon(Icons.Filled.PlayArrow, "训练") }, label = { Text("训练") })
                     NavigationBarItem(selected = tab == 1, onClick = { tab = 1 },
-                        icon = { Icon(Icons.AutoMirrored.Filled.List, "错题") }, label = { Text("错题") })
+                        icon = { Icon(Icons.Filled.CheckCircle, "打卡") }, label = { Text("打卡") })
                     NavigationBarItem(selected = tab == 2, onClick = { tab = 2 },
                         icon = { Icon(Icons.Filled.Info, "关于") }, label = { Text("关于") })
                 }
@@ -80,8 +84,7 @@ fun MainScreen(vm: TrainViewModel) {
             Box(Modifier.padding(padding)) {
                 when (tab) {
                     0 -> TrainTab(vm, onOpenShelf = { showShelf = true })
-                    1 -> ErrorBookTab(vm, onZoom = { entries, idx ->
-                        zoomState = Pair(entries, idx) })
+                    1 -> CheckInTab(vm)
                     2 -> AboutTab(vm)
                 }
             }
@@ -90,6 +93,12 @@ fun MainScreen(vm: TrainViewModel) {
         // Fullscreen overlay — covers entire screen including system bars
         zoomState?.let { (entries, idx) ->
             FullscreenZoom(entries, idx, vm.displayPrefix) { zoomState = null }
+        }
+
+        // 错题集 overlay（原错题 tab 移为入口，从任意 tab 打开）
+        if (showErrorBook) {
+            ErrorBookOverlay(vm, onClose = { showErrorBook = false },
+                onZoom = { entries, idx -> zoomState = Pair(entries, idx) })
         }
 
         // 图谱书架 overlay
@@ -121,7 +130,6 @@ private fun ThemeToggle(cs: androidx.compose.material3.ColorScheme) {
 @Composable
 private fun TrainTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
     val cs = MaterialTheme.colorScheme
-    var showRestart by remember { mutableStateOf(false) }
 
     if (vm.isLoading) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -149,10 +157,6 @@ private fun TrainTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
         }
         Spacer(Modifier.height(8.dp))
 
-        // 打卡区（今日任务 + 月历 + 设置）
-        CheckInPanel(vm)
-        Spacer(Modifier.height(8.dp))
-
         // Card
         Box(Modifier.weight(1f)) {
             val item = vm.currentItem
@@ -160,50 +164,65 @@ private fun TrainTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
             else CompleteView(vm)
         }
     }
-
-    if (showRestart) AlertDialog(
-        onDismissRequest = { showRestart = false },
-        title = { Text("确认重新开始") },
-        text = { Text("两本图谱的学习进度和复习计划将丢失（打卡记录保留），确定？") },
-        confirmButton = { TextButton({ vm.restart(); showRestart = false }) { Text("确定") } },
-        dismissButton = { TextButton({ showRestart = false }) { Text("取消") } })
 }
 
-// ═══════════ 打卡区 ═══════════
+// ═══════════ 打卡 Tab ═══════════
 
 @Composable
-private fun CheckInPanel(vm: TrainViewModel) {
+private fun CheckInTab(vm: TrainViewModel) {
     val cs = MaterialTheme.colorScheme
-    var expanded by remember { mutableStateOf(false) }
-    val checkedIn = vm.isCheckedIn()
-    val total = vm.newTotal
+    var showRestart by remember { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-        .background(cs.surfaceVariant).clickable { expanded = !expanded }.padding(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("📅 今日任务", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = cs.onSurface)
-                Spacer(Modifier.height(2.dp))
-                Text("新卡 ${vm.newDone}/${vm.newTotal} · 复习 ${vm.reviewDone}/${vm.reviewTotal} · 连续 ${vm.streakDays()} 天 🔥",
-                    fontSize = 12.sp, color = cs.onSurfaceVariant)
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // 今日任务
+        item {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                .background(cs.surfaceVariant).padding(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("📅 今日任务", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cs.onSurface)
+                        Spacer(Modifier.height(2.dp))
+                        Text("新卡 ${vm.newDone}/${vm.newTotal} · 复习 ${vm.reviewDone}/${vm.reviewTotal} · 连续 ${vm.streakDays()} 天 🔥",
+                            fontSize = 12.sp, color = cs.onSurfaceVariant)
+                    }
+                    if (vm.isCheckedIn()) Surface(shape = RoundedCornerShape(8.dp), color = Color(0xFFC8E6C9)) {
+                        Text("✓ 已打卡", Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+                            fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)) }
+                }
+                Spacer(Modifier.height(10.dp))
+                Text("新卡", fontSize = 11.sp, color = cs.outline)
+                Spacer(Modifier.height(3.dp))
+                LinearProgressIndicator(
+                    progress = { if (vm.newTotal == 0) 0f else vm.newDone.toFloat() / vm.newTotal },
+                    Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                    color = cs.primary, trackColor = cs.surface)
+                Spacer(Modifier.height(8.dp))
+                Text("复习", fontSize = 11.sp, color = cs.outline)
+                Spacer(Modifier.height(3.dp))
+                LinearProgressIndicator(
+                    progress = { if (vm.reviewTotal == 0) 0f else vm.reviewDone.toFloat() / vm.reviewTotal },
+                    Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                    color = cs.secondary, trackColor = cs.surface)
             }
-            if (checkedIn) Surface(shape = RoundedCornerShape(8.dp), color = Color(0xFFC8E6C9)) {
-                Text("✓ 已打卡", Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
-                    fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)) }
-            Spacer(Modifier.width(8.dp))
-            Icon(if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                "展开", tint = cs.outline)
         }
-        Spacer(Modifier.height(8.dp))
-        LinearProgressIndicator(
-            progress = { if (total == 0) 0f else vm.newDone.toFloat() / total },
-            Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
-            color = cs.primary, trackColor = cs.surface)
-        AnimatedVisibility(visible = expanded) {
-            Column {
-                Spacer(Modifier.height(12.dp))
+
+        // 打卡月历
+        item {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                .background(cs.surfaceVariant).padding(12.dp)) {
+                Text("🗓 打卡月历", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cs.onSurface)
+                Spacer(Modifier.height(8.dp))
                 MonthCalendar(vm)
-                HorizontalDivider(Modifier.padding(vertical = 12.dp))
+            }
+        }
+
+        // 打卡设置
+        item {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                .background(cs.surfaceVariant).padding(12.dp)) {
+                Text("⚙️ 打卡设置", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cs.onSurface)
+                Spacer(Modifier.height(10.dp))
                 Text("每日新卡量", fontSize = 13.sp, color = cs.outline)
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -223,9 +242,24 @@ private fun CheckInPanel(vm: TrainViewModel) {
                             modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp))
                     }
                 }
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("重置：清空两本图谱的学习进度", Modifier.weight(1f),
+                        fontSize = 12.sp, color = cs.outline)
+                    TextButton(onClick = { showRestart = true }) { Text("重置", color = cs.error) }
+                }
             }
         }
+
+        item { Spacer(Modifier.height(16.dp)) }
     }
+
+    if (showRestart) AlertDialog(
+        onDismissRequest = { showRestart = false },
+        title = { Text("确认重新开始") },
+        text = { Text("两本图谱的学习进度和复习计划将丢失（打卡记录保留），确定？") },
+        confirmButton = { TextButton({ vm.restart(); showRestart = false }) { Text("确定") } },
+        dismissButton = { TextButton({ showRestart = false }) { Text("取消") } })
 }
 
 // ═══════════ 打卡月历 ═══════════
@@ -402,7 +436,34 @@ private fun FlashcardView(vm: TrainViewModel, item: AlgaeItem) {
     }
 }
 
-// ═══════════ 错题 Tab ═══════════
+// ═══════════ 错题集（overlay：顶栏返回 + 列表） ═══════════
+
+@Composable
+private fun ErrorBookOverlay(vm: TrainViewModel, onClose: () -> Unit,
+                             onZoom: (List<Pair<AlgaeItem, Int>>, Int) -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val entries = remember(vm.errorBookVersion) { vm.errorBook() }
+
+    Box(Modifier.fillMaxSize().background(cs.background)) {
+        Column(Modifier.fillMaxSize()) {
+            // Top bar
+            Row(Modifier.fillMaxWidth().background(cs.primary)
+                .padding(horizontal = 4.dp, vertical = 4.dp)
+                .windowInsetsPadding(WindowInsets.statusBars),
+                verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onClose) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回", tint = cs.onPrimary)
+                }
+                Text("📋 错题集", Modifier.weight(1f),
+                    fontSize = 18.sp, fontWeight = FontWeight.Bold, color = cs.onPrimary)
+                if (entries.isNotEmpty()) TextButton(onClick = { vm.clearErrors() }) {
+                    Text("清空", color = cs.onPrimary)
+                }
+            }
+            ErrorBookTab(vm, onZoom)
+        }
+    }
+}
 
 @Composable
 private fun ErrorBookTab(vm: TrainViewModel, onZoom: (List<Pair<AlgaeItem, Int>>, Int) -> Unit) {
@@ -412,14 +473,7 @@ private fun ErrorBookTab(vm: TrainViewModel, onZoom: (List<Pair<AlgaeItem, Int>>
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
             Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically) {
-                Text("📋 错题集", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = cs.onSurface)
-                if (entries.isNotEmpty()) TextButton(onClick = { vm.clearErrors() }) {
-                    Text("清空", color = cs.error)
-                }
-            }
-            Text("错误的图片会上传到你的错题集里，方便你反复查看。",
+            Text("错误的图片会自动加入错题集，方便反复查看。",
                 fontSize = 12.sp, color = cs.outline)
             Spacer(Modifier.height(8.dp))
 
@@ -513,7 +567,7 @@ private fun AboutTab(vm: TrainViewModel) {
         }
 
         AboutCard("👥 作者信息", cs) {
-            val authors = listOf("喝茶喵", "蛋蛋", "进宝", "斯卡蒂")
+            val authors = listOf("喝茶喵", "蛋蛋", "进宝")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 authors.forEach { name ->
                     Surface(Modifier.weight(1f), shape = RoundedCornerShape(12.dp),
