@@ -177,6 +177,8 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
                     Text(if (vm.currentMode == "algae") "🌿" else "🦠", fontSize = 22.sp)
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
+                        Text("📚 我的图谱书", fontSize = 13.sp, color = cs.outline)
+                        Spacer(Modifier.height(2.dp))
                         Text(vm.bookTitle, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cs.onSurface)
                         Text("${vm.currentPhylumCount} 门 · ${vm.allItems.size} 图 · 点击换书",
                             fontSize = 12.sp, color = cs.outline)
@@ -576,10 +578,10 @@ private fun AboutTab(vm: TrainViewModel) {
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
 
         AboutCard("📖 玩法说明", cs) {
-            Text("在「📚 我的图谱书」选择图谱书（浮游植物 / 浮游动物），每天完成新卡和复习任务，按记忆曲线安排复习。",
+            Text("在「打卡」页的「我的图谱书」卡片选择图谱书（浮游植物 / 浮游动物），每天完成新卡和复习任务，按记忆曲线安排复习。",
                 lineHeight = 24.sp, color = cs.onSurface)
             Spacer(Modifier.height(12.dp))
-            for ((n, t) in listOf("1" to "在「打卡」页的「我的图谱书」卡片选择/切换图谱书",
+            for ((n, t) in listOf("1" to "在打卡页点「我的图谱书」卡片选择/切换图谱书",
                 "2" to "看图片判断是否认识", "3" to "单击卡牌翻面查看名称",
                 "4" to "认识点✓，不认识点✗（不认识会归零重学）",
                 "5" to "点错可点「↩撤销」返回重标", "6" to "不认识自动加入错题集",
@@ -606,11 +608,11 @@ private fun AboutTab(vm: TrainViewModel) {
             }
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("浮游植物", color = cs.outline); Text("${vm.allAlgaeItems.size} 种", fontWeight = FontWeight.Bold)
+                Text("浮游植物", color = cs.outline); Text("${vm.allAlgaeItems.size} 图", fontWeight = FontWeight.Bold)
             }
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("浮游动物", color = cs.outline); Text("${vm.allZooItems.size} 种", fontWeight = FontWeight.Bold)
+                Text("浮游动物", color = cs.outline); Text("${vm.allZooItems.size} 图", fontWeight = FontWeight.Bold)
             }
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween) {
