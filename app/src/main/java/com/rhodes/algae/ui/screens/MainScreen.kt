@@ -99,7 +99,7 @@ private fun ThemeToggle(cs: androidx.compose.material3.ColorScheme) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { expanded = true }) {
-            Icon(Icons.Filled.Palette, "主题", tint = cs.onPrimary) }
+            Text("🎨", fontSize = 20.sp) }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(text = { Text("🌓 跟随系统") }, onClick = {
                 ThemeState.apply(ThemeState.Mode.Auto); expanded = false })
