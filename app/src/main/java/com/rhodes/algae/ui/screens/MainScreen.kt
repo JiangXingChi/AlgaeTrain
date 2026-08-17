@@ -178,7 +178,7 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
                         Text(vm.bookTitle, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cs.onSurface)
-                        Text("${vm.allItems.map { it.phylum }.distinct().size} 门 · ${vm.allItems.size} 图 · 点击换书",
+                        Text("${vm.currentPhylumCount} 门 · ${vm.allItems.size} 图 · 点击换书",
                             fontSize = 12.sp, color = cs.outline)
                         Spacer(Modifier.height(8.dp))
                         LinearProgressIndicator(

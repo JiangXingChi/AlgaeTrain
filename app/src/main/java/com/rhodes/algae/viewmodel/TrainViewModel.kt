@@ -48,6 +48,9 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     var allAlgaeItems = emptyList<AlgaeItem>(); private set
     var allZooItems = emptyList<AlgaeItem>(); private set
     val allItems get() = if (currentMode == "algae") allAlgaeItems else allZooItems
+    private var phylumCountAlgae = 0
+    private var phylumCountZoo = 0
+    val currentPhylumCount get() = if (currentMode == "algae") phylumCountAlgae else phylumCountZoo
 
     // ── Card state ──
     var currentItem by mutableStateOf<AlgaeItem?>(null); private set
@@ -87,8 +90,10 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
             currentMode = appPrefs.getString("selected_book", "algae") ?: "algae"
             val app = getApplication<Application>()
             allAlgaeItems = parseItems(app.assets.open("algae_data.json").reader().readText(), "algae")
+            phylumCountAlgae = allAlgaeItems.map { it.phylum }.distinct().size
             try {
                 allZooItems = parseItems(app.assets.open("zooplankton_data.json").reader().readText(), "zooplankton")
+                phylumCountZoo = allZooItems.map { it.phylum }.distinct().size
             } catch (_: Exception) { Log.w("识浮游", "zooplankton_data.json missing") }
             initQueue()
         } catch (e: Exception) { Log.e("识浮游", "Load failed", e) }

@@ -29,8 +29,8 @@ cd /home/teacat/Agent/Temp/App开发/识浮游
 ```
 MainActivity                 ← 入口，AlgaeTheme + TrainViewModel
   └─ MainScreen              ← Scaffold + 3 标签页 + 3 个全屏 overlay
-       ├─ TrainTab           ← 训练页：当前书卡片 + 闪卡
-       ├─ CheckInTab         ← 打卡页：今日任务双进度条 + 月历 + 设置（配额/比例/重置）
+       ├─ TrainTab           ← 训练页：闪卡（图谱书卡片在打卡页）
+       ├─ CheckInTab         ← 打卡页：图谱书卡片(总进度/换书) + 今日任务双进度条 + 月历 + 设置（配额3档+自定义/比例/重置）
        ├─ AboutTab           ← 关于：玩法说明 + 版本信息 + 版权
        ├─ BookShelfScreen    ← 图谱书架 overlay（像选词书一样换书）
        ├─ ErrorBookOverlay   ← 错题集 overlay（顶栏📋图标打开，带返回）
@@ -69,8 +69,8 @@ TrainViewModel               ← 状态管理器（唯一 ViewModel）
 
 ### 图谱书（V0.4.0 引入）
 
-- 两本：**浮游植物图谱**（629 图 · 8 门）、**浮游动物图谱**（146 图 · 3 门）
-- 书架入口：训练页顶部当前书卡片；未选过书首次启动自动进书架
+- 两本：**浮游植物图谱**（630 图 · 8 门）、**浮游动物图谱**（146 图 · 3 门）
+- 书架入口：**打卡页顶部「我的图谱书」卡片**（含总进度条，点击换书）；未选过书首次启动自动进书架
 - `currentMode` = "algae"/"zooplankton"，即"当前书"；选书写入 `app_settings.selected_book`
 - 每本书进度独立（两套 SharedPreferences：`algae_train` / `zoo_train`），切书互不影响
 
@@ -86,7 +86,7 @@ TrainViewModel               ← 状态管理器（唯一 ViewModel）
 
 ### 每日打卡（V0.4.0 引入）
 
-- 设置存 `app_settings`：`daily_quota`（默认 20，可选 5/10/15/20/30/50）、`review_ratio`（1:1/1:2/1:3，默认 1:2）
+- 设置存 `app_settings`：`daily_quota`（默认 20，快捷档 10/20/30 + **自定义 1-100** 输入）、`review_ratio`（1:1/1:2/1:3，默认 1:2）
 - 复习上限 = 配额 × 比例，超出的到期卡顺延明天
 - **打卡条件**：今日新卡配额完成即打卡（复习卡不阻塞）
 - 打卡记录：`app_settings.checkin_dates`（JSONArray<epochDay>），连续天数从今天/昨天往回数
