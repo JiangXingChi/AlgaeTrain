@@ -207,6 +207,23 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         currentItem = cardQueue.first(); flipped = false
     }
 
+    // 再学一组：今日任务学完后，从剩余新卡（未排期）再取一组加练
+    // 不影响当日打卡记录；返回实际加入的张数（0 = 图谱已全部学完）
+    fun addMoreCards(): Int {
+        if (currentItem != null || cardQueue.isNotEmpty()) return 0
+        val mode = currentMode
+        val dueMap = HashMap<String, Long>(allItems.size)
+        allItems.forEach { dueMap[it.id] = prefsFor(mode).getLong("d_${it.id}", 0L) }
+        val remaining = allItems.filter { dueMap[it.id] == 0L }.shuffled().take(dailyQuota)
+        if (remaining.isEmpty()) return 0
+        cardQueue = remaining
+        queueDate = today()
+        newTotal += remaining.size
+        saveQueue()
+        nextCard()
+        return remaining.size
+    }
+
     fun flip() { flipped = !flipped }
 
     fun mark(known: Boolean) {

@@ -359,6 +359,7 @@ private fun MonthCalendar(vm: TrainViewModel) {
 private fun CompleteView(vm: TrainViewModel) {
     val cs = MaterialTheme.colorScheme
     var showRestart by remember { mutableStateOf(false) }
+    var noMore by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center) {
         Text("🎉", fontSize = 48.sp)
@@ -370,8 +371,22 @@ private fun CompleteView(vm: TrainViewModel) {
         if (vm.isCheckedIn()) Surface(shape = RoundedCornerShape(10.dp), color = Color(0xFFC8E6C9)) {
             Text("✓ 今日已打卡", Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)) }
-        Spacer(Modifier.height(16.dp))
-        Button(onClick = { showRestart = true }) { Text("重新开始") }
+        Spacer(Modifier.height(20.dp))
+        // 主按钮：再学一组（从剩余新卡加练，不影响打卡）
+        Button(onClick = {
+            if (vm.addMoreCards() > 0) noMore = false
+            else noMore = true
+        }, enabled = !noMore,
+            colors = ButtonDefaults.buttonColors(containerColor = cs.primary),
+            shape = RoundedCornerShape(12.dp)) {
+            Text(if (noMore) "图谱已全部学完 🎉" else "再学一组",
+                Modifier.padding(horizontal = 16.dp, vertical = 4.dp), fontSize = 16.sp)
+        }
+        Spacer(Modifier.height(6.dp))
+        // 次级入口：重置全部进度（防误触，红色小字）
+        TextButton(onClick = { showRestart = true }) {
+            Text("重新开始（清空全部进度）", fontSize = 12.sp, color = cs.error)
+        }
     }
     if (showRestart) AlertDialog(
         onDismissRequest = { showRestart = false },
@@ -490,7 +505,8 @@ private fun AboutTab(vm: TrainViewModel) {
                 "4" to "认识点✓，不认识点✗（不认识会归零重学）",
                 "5" to "点错可点「↩撤销」返回重标",
                 "6" to "按记忆曲线（1/2/4/7/15/30 天）安排复习",
-                "7" to "每日新卡学完自动打卡，可翻看打卡月历")) {
+                "7" to "每日新卡学完自动打卡，可翻看打卡月历",
+                "8" to "学完可点「再学一组」继续加练（不影响打卡）")) {
                 Row(Modifier.padding(vertical = 4.dp)) {
                     Box(Modifier.size(24.dp).clip(RoundedCornerShape(8.dp)).background(cs.primaryContainer),
                         contentAlignment = Alignment.Center) {

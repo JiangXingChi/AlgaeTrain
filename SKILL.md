@@ -48,6 +48,7 @@ TrainViewModel               ← 状态管理器（唯一 ViewModel）
   ├── parseItems(json, mode) ← 解析 + 旧版 known 迁移，mode 决定 prefs 归属
   ├── rebuildDailyQueue()    ← 每日调度：到期复习（先）+ 新卡配额（后）
   ├── mark(known)            ← 2 档评价，更新 SRS 等级/日期 + 打卡判定
+  ├── addMoreCards()         ← 学完后加练：剩余新卡再取一组（不影响打卡，0=学完）
   ├── undo()                 ← 撤销上一步（同时回滚 SRS 状态）
   ├── restart()              ← 重置两本图谱进度（保留打卡记录）
   ├── setQuota/setRatio      ← 打卡设置，改后立即重建今日队列
