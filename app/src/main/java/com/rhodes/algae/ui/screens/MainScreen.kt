@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -32,6 +33,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,7 +45,7 @@ import com.rhodes.algae.viewmodel.TrainViewModel
 import java.time.LocalDate
 import java.time.YearMonth
 
-private const val VERSION = "V0.4.0"
+private const val VERSION = "V0.5.0"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,8 +91,8 @@ fun MainScreen(vm: TrainViewModel) {
         ) { padding ->
             Box(Modifier.padding(padding)) {
                 when (tab) {
-                    0 -> TrainTab(vm, onOpenShelf = { showShelf = true })
-                    1 -> CheckInTab(vm)
+                    0 -> TrainTab(vm)
+                    1 -> CheckInTab(vm, onOpenShelf = { showShelf = true })
                     2 -> AboutTab(vm)
                 }
             }
@@ -134,7 +136,7 @@ private fun ThemeToggle(cs: androidx.compose.material3.ColorScheme) {
 // ═══════════ 训练 Tab ═══════════
 
 @Composable
-private fun TrainTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
+private fun TrainTab(vm: TrainViewModel) {
     val cs = MaterialTheme.colorScheme
 
     if (vm.isLoading) {
@@ -145,25 +147,7 @@ private fun TrainTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
 
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Spacer(Modifier.height(8.dp))
-        // 当前图谱书卡片（点击进入书架换书）
-        Card(Modifier.fillMaxWidth().clickable(onClick = onOpenShelf),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = cs.surfaceVariant)) {
-            Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Text(if (vm.currentMode == "algae") "🌿" else "🦠", fontSize = 22.sp)
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(vm.bookTitle, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cs.onSurface)
-                    Text("已掌握 ${vm.knownCount}/${vm.allItems.size} · 点击换书",
-                        fontSize = 12.sp, color = cs.outline)
-                }
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "换书", tint = cs.outline)
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-
-        // Card
+        // Card（图谱选择/切换已移至打卡页）
         Box(Modifier.weight(1f)) {
             val item = vm.currentItem
             if (item != null) FlashcardView(vm, item)
@@ -175,12 +159,41 @@ private fun TrainTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
 // ═══════════ 打卡 Tab ═══════════
 
 @Composable
-private fun CheckInTab(vm: TrainViewModel) {
+private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     var showRestart by remember { mutableStateOf(false) }
+    var showQuotaDialog by remember { mutableStateOf(false) }
+    var quotaInput by remember { mutableStateOf("") }
 
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // 我的图谱书 + 总进度（点击换书）
+        item {
+            Card(Modifier.fillMaxWidth().clickable(onClick = onOpenShelf),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = cs.surfaceVariant)) {
+                Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(if (vm.currentMode == "algae") "🌿" else "🦠", fontSize = 22.sp)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(vm.bookTitle, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cs.onSurface)
+                        Text("${vm.allItems.map { it.phylum }.distinct().size} 门 · ${vm.allItems.size} 图 · 点击换书",
+                            fontSize = 12.sp, color = cs.outline)
+                        Spacer(Modifier.height(8.dp))
+                        LinearProgressIndicator(
+                            progress = { if (vm.allItems.isEmpty()) 0f else vm.knownCount.toFloat() / vm.allItems.size },
+                            Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                            color = cs.primary, trackColor = cs.surface)
+                        Spacer(Modifier.height(4.dp))
+                        Text("已掌握 ${vm.knownCount}/${vm.allItems.size} · 未掌握 ${vm.allItems.size - vm.knownCount}",
+                            fontSize = 12.sp, color = cs.outline)
+                    }
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "换书", tint = cs.outline)
+                }
+            }
+        }
+
         // 今日任务
         item {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
@@ -237,6 +250,15 @@ private fun CheckInTab(vm: TrainViewModel) {
                             label = { Text("$q", fontSize = 12.sp) },
                             modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp))
                     }
+                    FilterChip(
+                        selected = vm.dailyQuota !in TrainViewModel.QUOTA_OPTIONS,
+                        onClick = { quotaInput = vm.dailyQuota.toString(); showQuotaDialog = true },
+                        label = { Text("自定义", fontSize = 12.sp) },
+                        modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp))
+                }
+                if (vm.dailyQuota !in TrainViewModel.QUOTA_OPTIONS) {
+                    Spacer(Modifier.height(4.dp))
+                    Text("当前 ${vm.dailyQuota} 张/天（自定义）", fontSize = 11.sp, color = cs.primary)
                 }
                 Spacer(Modifier.height(10.dp))
                 Text("新学 : 复习", fontSize = 13.sp, color = cs.outline)
@@ -266,6 +288,23 @@ private fun CheckInTab(vm: TrainViewModel) {
         text = { Text("两本图谱的学习进度和复习计划将丢失（打卡记录保留），确定？") },
         confirmButton = { TextButton({ vm.restart(); showRestart = false }) { Text("确定") } },
         dismissButton = { TextButton({ showRestart = false }) { Text("取消") } })
+
+    if (showQuotaDialog) AlertDialog(
+        onDismissRequest = { showQuotaDialog = false },
+        title = { Text("自定义每日新卡量") },
+        text = {
+            OutlinedTextField(
+                value = quotaInput,
+                onValueChange = { quotaInput = it.filter(Char::isDigit).take(3) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                label = { Text("张/天（${TrainViewModel.QUOTA_MIN}-${TrainViewModel.QUOTA_MAX}）") })
+        },
+        confirmButton = { TextButton({
+            quotaInput.toIntOrNull()?.let { vm.setQuota(it) }
+            showQuotaDialog = false
+        }) { Text("确定") } },
+        dismissButton = { TextButton({ showQuotaDialog = false }) { Text("取消") } })
 }
 
 // ═══════════ 打卡月历 ═══════════

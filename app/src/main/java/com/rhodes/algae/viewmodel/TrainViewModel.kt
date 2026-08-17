@@ -18,8 +18,10 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     companion object {
         // 间隔表：等级 0→1 天，1→2 天，2→4 天，3→7 天，4→15 天，5→30 天（艾宾浩斯遗忘曲线复习节点）
         val INTERVAL_DAYS = intArrayOf(1, 2, 4, 7, 15, 30)
-        val QUOTA_OPTIONS = listOf(5, 10, 15, 20, 30, 50)
+        val QUOTA_OPTIONS = listOf(10, 20, 30) // 快捷档位，另有自定义
         const val DEFAULT_QUOTA = 20
+        const val QUOTA_MIN = 1
+        const val QUOTA_MAX = 100
         val RATIO_OPTIONS = listOf(1, 2, 3) // 新学:复习 = 1:1 / 1:2 / 1:3
         const val DEFAULT_RATIO = 2
     }
@@ -263,9 +265,10 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── 打卡设置（改后立即重建今日队列，当天生效）──
     fun setQuota(q: Int) {
-        if (q == dailyQuota) return
-        dailyQuota = q
-        appPrefs.edit().putInt("daily_quota", q).apply()
+        val v = q.coerceIn(QUOTA_MIN, QUOTA_MAX)
+        if (v == dailyQuota) return
+        dailyQuota = v
+        appPrefs.edit().putInt("daily_quota", v).apply()
         rebuildDailyQueue(); nextCard()
     }
 
