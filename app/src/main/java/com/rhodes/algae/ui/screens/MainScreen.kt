@@ -8,16 +8,13 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -51,16 +48,12 @@ private const val VERSION = "V0.5.0"
 @Composable
 fun MainScreen(vm: TrainViewModel) {
     var tab by remember { mutableIntStateOf(0) }
-    var zoomState by remember { mutableStateOf<Pair<List<Pair<AlgaeItem, Int>>, Int>?>(null) }
     // 首次启动未选书时自动进入图谱书架
     var showShelf by remember { mutableStateOf(!vm.bookSelected) }
-    var showErrorBook by remember { mutableStateOf(false) }
     val cs = MaterialTheme.colorScheme
 
     Box(Modifier.fillMaxSize()) {
-        // 全屏 overlay 打开时拦截系统返回键，优先关闭最上层（后注册者优先响应）
-        if (showErrorBook) BackHandler(enabled = true) { showErrorBook = false }
-        if (zoomState != null) BackHandler(enabled = true) { zoomState = null }
+        // 图谱书架打开时拦截系统返回键
         if (showShelf) BackHandler(enabled = true) { showShelf = false }
 
         Scaffold(
@@ -68,11 +61,7 @@ fun MainScreen(vm: TrainViewModel) {
                 TopAppBar(
                     title = { Text(when (tab) { 0 -> "🌊 识浮游"; 1 -> "📅 打卡"; else -> "ℹ️ 关于" },
                         fontWeight = FontWeight.Bold) },
-                    actions = {
-                        IconButton(onClick = { showErrorBook = true }) {
-                            Icon(Icons.AutoMirrored.Filled.List, "错题", tint = cs.onPrimary) }
-                        ThemeToggle(cs)
-                    },
+                    actions = { ThemeToggle(cs) },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = cs.primary, titleContentColor = cs.onPrimary)
                 )
@@ -96,17 +85,6 @@ fun MainScreen(vm: TrainViewModel) {
                     2 -> AboutTab(vm)
                 }
             }
-        }
-
-        // Fullscreen overlay — covers entire screen including system bars
-        zoomState?.let { (entries, idx) ->
-            FullscreenZoom(entries, idx, vm.displayPrefix) { zoomState = null }
-        }
-
-        // 错题集 overlay（原错题 tab 移为入口，从任意 tab 打开）
-        if (showErrorBook) {
-            ErrorBookOverlay(vm, onClose = { showErrorBook = false },
-                onZoom = { entries, idx -> zoomState = Pair(entries, idx) })
         }
 
         // 图谱书架 overlay
@@ -495,85 +473,6 @@ private fun FlashcardView(vm: TrainViewModel, item: AlgaeItem) {
     }
 }
 
-// ═══════════ 错题集（overlay：顶栏返回 + 列表） ═══════════
-
-@Composable
-private fun ErrorBookOverlay(vm: TrainViewModel, onClose: () -> Unit,
-                             onZoom: (List<Pair<AlgaeItem, Int>>, Int) -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    val entries = remember(vm.errorBookVersion) { vm.errorBook() }
-
-    Box(Modifier.fillMaxSize().background(cs.background)) {
-        Column(Modifier.fillMaxSize()) {
-            // Top bar
-            Row(Modifier.fillMaxWidth().background(cs.primary)
-                .padding(horizontal = 4.dp, vertical = 4.dp)
-                .windowInsetsPadding(WindowInsets.statusBars),
-                verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回", tint = cs.onPrimary)
-                }
-                Text("📋 错题集", Modifier.weight(1f),
-                    fontSize = 18.sp, fontWeight = FontWeight.Bold, color = cs.onPrimary)
-                if (entries.isNotEmpty()) TextButton(onClick = { vm.clearErrors() }) {
-                    Text("清空", color = cs.onPrimary)
-                }
-            }
-            ErrorBookTab(vm, onZoom)
-        }
-    }
-}
-
-@Composable
-private fun ErrorBookTab(vm: TrainViewModel, onZoom: (List<Pair<AlgaeItem, Int>>, Int) -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    val entries = remember(vm.errorBookVersion) { vm.errorBook() }
-
-    Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-            Spacer(Modifier.height(8.dp))
-            Text("错误的图片会自动加入错题集，方便反复查看。",
-                fontSize = 12.sp, color = cs.outline)
-            Spacer(Modifier.height(8.dp))
-
-            if (entries.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("🎉", fontSize = 48.sp)
-                        Text("没有错题！", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = cs.primary)
-                    }
-                }
-            } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    itemsIndexed(entries) { idx, (item, count) ->
-                        Card(Modifier.fillMaxWidth().clickable { onZoom(entries, idx) },
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = cs.surfaceVariant)) {
-                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                AsyncImage(
-                                    model = ImageRequest.Builder(LocalContext.current)
-                                        .data("file:///android_asset/${vm.displayPrefix}${item.file}")
-                                        .crossfade(true).size(160).build(),
-                                    contentDescription = item.genus,
-                                    modifier = Modifier.size(64.dp).clip(RoundedCornerShape(8.dp)),
-                                    contentScale = ContentScale.Crop)
-                                Spacer(Modifier.width(12.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text(item.genus, fontWeight = FontWeight.Bold, fontSize = 16.sp,
-                                        color = cs.onSurface)
-                                    Text(item.phylum, fontSize = 13.sp, color = cs.outline)
-                                    Text("错误 $count 次", fontSize = 12.sp, color = cs.error)
-                                }
-                            }
-                        }
-                    }
-                    item { Spacer(Modifier.height(16.dp)) }
-                }
-            }
-        }
-    }
-}
-
 // ═══════════ 关于 Tab ═══════════
 
 @Composable
@@ -589,9 +488,9 @@ private fun AboutTab(vm: TrainViewModel) {
             for ((n, t) in listOf("1" to "在打卡页点「我的图谱书」卡片选择/切换图谱书",
                 "2" to "看图片判断是否认识", "3" to "单击卡牌翻面查看名称",
                 "4" to "认识点✓，不认识点✗（不认识会归零重学）",
-                "5" to "点错可点「↩撤销」返回重标", "6" to "不认识自动加入错题集",
-                "7" to "按记忆曲线（1/2/4/7/15/30 天）安排复习",
-                "8" to "每日新卡学完自动打卡，可翻看打卡月历")) {
+                "5" to "点错可点「↩撤销」返回重标",
+                "6" to "按记忆曲线（1/2/4/7/15/30 天）安排复习",
+                "7" to "每日新卡学完自动打卡，可翻看打卡月历")) {
                 Row(Modifier.padding(vertical = 4.dp)) {
                     Box(Modifier.size(24.dp).clip(RoundedCornerShape(8.dp)).background(cs.primaryContainer),
                         contentAlignment = Alignment.Center) {
@@ -669,113 +568,6 @@ private fun AboutCard(title: String, cs: androidx.compose.material3.ColorScheme,
             Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = cs.primary)
             Spacer(Modifier.height(12.dp))
             content()
-        }
-    }
-}
-
-// ═══════════ 全屏缩放查看（按钮翻页） ═══════════
-
-@Composable
-private fun FullscreenZoom(
-    entries: List<Pair<AlgaeItem, Int>>, initialIdx: Int,
-    prefix: String, onClose: () -> Unit
-) {
-    var currentPage by remember { mutableIntStateOf(initialIdx) }
-    var zoomScale by remember { mutableFloatStateOf(1f) }
-    var offsetX by remember { mutableFloatStateOf(0f) }
-    var offsetY by remember { mutableFloatStateOf(0f) }
-    val canPrev = currentPage > 0
-    val canNext = currentPage < entries.size - 1
-
-    // Reset zoom on page change
-    LaunchedEffect(currentPage) {
-        zoomScale = 1f; offsetX = 0f; offsetY = 0f
-    }
-
-    val (item, _) = entries[currentPage]
-    val assetPath = "${prefix}${item.file}"
-
-    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.95f))) {
-        // ── Image with zoom / tap gestures ──
-        AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data("file:///android_asset/$assetPath").crossfade(true).build(),
-            contentDescription = item.genus,
-            modifier = Modifier.fillMaxSize()
-                .pointerInput(currentPage) {
-                    detectTransformGestures { _, pan, zoom, _ ->
-                        val s = (zoomScale * zoom).coerceIn(1f, 6f)
-                        zoomScale = s
-                        if (s > 1.01f) { offsetX += pan.x; offsetY += pan.y }
-                        else { offsetX = 0f; offsetY = 0f }
-                    }
-                }
-                .pointerInput(currentPage) {
-                    detectTapGestures(
-                        onTap = { onClose() },
-                        onDoubleTap = { zoomScale = 1f; offsetX = 0f; offsetY = 0f }
-                    )
-                }
-                .graphicsLayer(scaleX = zoomScale, scaleY = zoomScale,
-                    translationX = offsetX, translationY = offsetY),
-            contentScale = ContentScale.Fit)
-
-        // ── Top bar: ← 返回 + page indicator + species name ──
-        Row(Modifier.align(Alignment.TopCenter).fillMaxWidth()
-            .background(Color(0x99000000)).padding(top = 48.dp, bottom = 12.dp)
-            .clickable { onClose() },
-            verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回",
-                tint = Color.White, modifier = Modifier.padding(start = 16.dp).size(24.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("${currentPage + 1}/${entries.size}",
-                color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp)
-            Spacer(Modifier.width(8.dp))
-            Text(item.genus,
-                color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp,
-                modifier = Modifier.weight(1f))
-            TextButton(onClick = onClose,
-                modifier = Modifier.padding(end = 8.dp)) {
-                Text("退出", color = Color(0xFF81C784), fontSize = 14.sp)
-            }
-        }
-
-        // ── Bottom bar: prev/next + species info ──
-        Surface(Modifier.align(Alignment.BottomCenter).padding(horizontal = 12.dp, vertical = 16.dp).fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp), color = Color(0x99000000)) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Row(Modifier.padding(horizontal = 10.dp, vertical = 8.dp).fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    // Prev
-                    IconButton(onClick = { if (canPrev) currentPage-- },
-                        enabled = canPrev,
-                        modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "上一张",
-                            tint = if (canPrev) Color.White else Color.White.copy(alpha = 0.25f),
-                            modifier = Modifier.size(24.dp))
-                    }
-                    // Species info
-                    Column(Modifier.weight(1f),
-                        horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(item.genus, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                        Text("${item.phylum}  ·  ${item.genusLatin}",
-                            color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
-                    }
-                    // Next
-                    IconButton(onClick = { if (canNext) currentPage++ },
-                        enabled = canNext,
-                        modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "下一张",
-                            tint = if (canNext) Color.White else Color.White.copy(alpha = 0.25f),
-                            modifier = Modifier.size(24.dp))
-                    }
-                }
-                if (zoomScale <= 1.01f) {
-                    Text("👆 点击退出 · 双指缩放 · 双击还原",
-                        Modifier.padding(bottom = 6.dp),
-                        fontSize = 10.sp, color = Color(0xFF81C784))
-                }
-            }
         }
     }
 }

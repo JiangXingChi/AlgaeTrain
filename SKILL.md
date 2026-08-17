@@ -28,13 +28,11 @@ cd /home/teacat/Agent/Temp/App开发/识浮游
 
 ```
 MainActivity                 ← 入口，AlgaeTheme + TrainViewModel
-  └─ MainScreen              ← Scaffold + 3 标签页 + 3 个全屏 overlay
+  └─ MainScreen              ← Scaffold + 3 标签页 + 1 个全屏 overlay
        ├─ TrainTab           ← 训练页：闪卡（图谱书卡片在打卡页）
-       ├─ CheckInTab         ← 打卡页：图谱书卡片(总进度/换书) + 今日任务双进度条 + 月历 + 设置（配额3档+自定义/比例/重置）
+       ├─ CheckInTab         ← 打卡页：图谱书卡片(总进度/换书) + 今日任务双进度条 + 月历 + 设置（配额25/50+自定义/比例/重置）
        ├─ AboutTab           ← 关于：玩法说明 + 版本信息 + 版权
-       ├─ BookShelfScreen    ← 图谱书架 overlay（像选词书一样换书）
-       ├─ ErrorBookOverlay   ← 错题集 overlay（顶栏📋图标打开，带返回）
-       └─ FullscreenZoom     ← 错题全屏缩放 overlay
+       └─ BookShelfScreen    ← 图谱书架 overlay（像选词书一样换书）
 ```
 
 ### 数据流
@@ -53,8 +51,7 @@ TrainViewModel               ← 状态管理器（唯一 ViewModel）
   ├── undo()                 ← 撤销上一步（同时回滚 SRS 状态）
   ├── restart()              ← 重置两本图谱进度（保留打卡记录）
   ├── setQuota/setRatio      ← 打卡设置，改后立即重建今日队列
-  ├── isCheckedIn()/streakDays() ← 打卡判定 / 连续天数
-  └── errorBookEntries()     ← 错题列表（按错误次数倒序）
+  └── isCheckedIn()/streakDays() ← 打卡判定 / 连续天数
 ```
 
 ---
@@ -65,7 +62,7 @@ TrainViewModel               ← 状态管理器（唯一 ViewModel）
 
 - 包名 `com.rhodes.algae`（未改为 `com.rhodes.plankton`，若重构需同步 `build.gradle.kts`）
 - 数据模型 `AlgaeItem` 同时服务植物/动物两本图谱
-- UI 文件：MainScreen.kt（训练/错题/关于/打卡）+ BookShelfScreen.kt（书架），拆 UI 文件时保持既有约定
+- UI 文件：MainScreen.kt（训练/打卡/关于）+ BookShelfScreen.kt（书架），拆 UI 文件时保持既有约定
 
 ### 图谱书（V0.4.0 引入）
 
@@ -80,7 +77,7 @@ TrainViewModel               ← 状态管理器（唯一 ViewModel）
 - 每卡：`s_<id>` 熟练等级 0-5，`d_<id>` 下次复习日（epochDay），按书隔离
 - **回答 2 档**：
   - 认识：等级 +1（封顶 5 级），按间隔表排下次复习
-  - 不认识：等级归 0，`d_` = 明天，卡回今日队列尾部当日重练，记入错题集
+  - 不认识：等级归 0，`d_` = 明天，卡回今日队列尾部当日重练
 - 每日队列 = 到期复习卡（`d_` ≤ 今天，按到期先后）+ 新卡（`d_` == 0，配额内先复习后新学）
 - 队列日期 `queue_date`：当天已建队列则断点续练（跨天自动重建）
 
@@ -102,7 +99,6 @@ Material3 + lightColorScheme：
 SharedPreferences（不用 Room/DataStore）：
 - `k_<id>` — 已掌握标记（V0.3.1 遗留，兼容保留）
 - `s_<id>` / `d_<id>` — SRS 等级 / 下次复习日
-- `e_<id>` — 错误计数
 - `queue_ids` + `queue_date` + `queue_*_total/done` — 今日队列与进度
 - `app_settings` — 当前书、打卡设置、打卡日期（全局，不分书）
 
@@ -192,7 +188,7 @@ private const val VERSION = "V0.4.1"
     │   └── ui/
     │       ├── theme/Theme.kt
     │       └── screens/
-    │           ├── MainScreen.kt               ← 训练/错题/关于/打卡区/月历
+    │           ├── MainScreen.kt               ← 训练/打卡/关于/打卡区/月历
     │           └── BookShelfScreen.kt          ← 图谱书架
     ├── assets/
     │   ├── algae_data.json                     ← 浮游植物 630 图

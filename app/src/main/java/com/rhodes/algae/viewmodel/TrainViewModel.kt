@@ -60,7 +60,7 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     private var queueDate = 0L
 
     // ── Undo ──
-    private data class Snap(val item: AlgaeItem, val wasKnown: Boolean, val wasErr: Int,
+    private data class Snap(val item: AlgaeItem, val wasKnown: Boolean,
                             val wasLevel: Int, val wasDue: Long, val marked: Boolean, val wasNew: Boolean)
     private val history = mutableListOf<Snap>()
     val canUndo get() = history.isNotEmpty()
@@ -133,10 +133,9 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     fun level(id: String) = prefsFor(currentMode).getInt("s_$id", 0)
     fun dueDayFor(mode: String, id: String) = prefsFor(mode).getLong("d_$id", 0L)
 
-    // ── 掌握 / 错误 ──
+    // ── 掌握 ──
     fun isKnownFor(mode: String, id: String) = prefsFor(mode).getBoolean("k_$id", false)
     fun isKnown(id: String) = prefsFor(currentMode).getBoolean("k_$id", false)
-    fun errCount(id: String) = prefs().getInt("e_$id", 0)
 
     // ── 每日队列调度 ──
     private fun initQueue() {
@@ -214,7 +213,7 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         val item = currentItem ?: return
         val lv = level(item.id); val due = dueDayFor(currentMode, item.id)
         val isNew = lv == 0 && due == 0L
-        history.add(Snap(item, isKnown(item.id), errCount(item.id), lv, due, known, isNew))
+        history.add(Snap(item, isKnown(item.id), lv, due, known, isNew))
         val e = prefs().edit().putBoolean("k_${item.id}", known)
         if (known) {
             // 认识：等级 +1（封顶 5），按间隔表排下次复习
@@ -223,11 +222,9 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
             cardQueue = cardQueue.drop(1)
         } else {
             // 不认识：等级归 0，明天再排，卡回队尾当天重练
-            e.putInt("e_${item.id}", errCount(item.id) + 1)
             e.putInt("s_${item.id}", 0)
             e.putLong("d_${item.id}", today() + 1)
             cardQueue = cardQueue.drop(1) + item
-            errorBookVersion++
         }
         e.apply()
         if (isNew) newDone++ else if (lv >= 1) reviewDone++
@@ -241,7 +238,6 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         val s = history.removeLast()
         prefs().edit()
             .putBoolean("k_${s.item.id}", s.wasKnown)
-            .putInt("e_${s.item.id}", s.wasErr)
             .putInt("s_${s.item.id}", s.wasLevel)
             .putLong("d_${s.item.id}", s.wasDue)
             .apply()
@@ -314,17 +310,4 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── Stats ──
     private fun updateStats() { knownCount = allItems.count { isKnown(it.id) } }
-
-    // ── 错题 ──
-    var errorBookVersion by mutableIntStateOf(0); private set
-    fun errorBook() = allItems.filter { errCount(it.id) > 0 }.map { it to errCount(it.id) }.sortedByDescending { it.second }
-    fun clearErrors() {
-        val app = getApplication<Application>()
-        listOf("algae_train", "zoo_train").forEach { name ->
-            app.getSharedPreferences(name, Context.MODE_PRIVATE).edit().also { e ->
-                (allAlgaeItems + allZooItems).distinctBy { it.id }.forEach { e.remove("e_${it.id}") }
-            }.apply()
-        }
-        errorBookVersion++
-    }
 }
