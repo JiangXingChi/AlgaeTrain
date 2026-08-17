@@ -120,11 +120,11 @@ SharedPreferences（不用 Room/DataStore）：
 改 `app/build.gradle.kts` 和 `MainScreen.kt` 中的 `VERSION` 常量（两处同步）：
 ```kotlin
 // app/build.gradle.kts
-versionCode = 8
-versionName = "V0.4.1"
+versionCode = 9
+versionName = "V0.5.1"
 
 // MainScreen.kt
-private const val VERSION = "V0.4.1"
+private const val VERSION = "V0.5.1"
 ```
 
 ### 添加新的图谱书
@@ -188,7 +188,7 @@ private const val VERSION = "V0.4.1"
     │   └── ui/
     │       ├── theme/Theme.kt
     │       └── screens/
-    │           ├── MainScreen.kt               ← 训练/打卡/关于/打卡区/月历
+    │           ├── MainScreen.kt               ← 训练/打卡/关于/月历
     │           └── BookShelfScreen.kt          ← 图谱书架
     ├── assets/
     │   ├── algae_data.json                     ← 浮游植物 630 图
