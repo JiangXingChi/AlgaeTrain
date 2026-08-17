@@ -99,7 +99,7 @@ private fun ThemeToggle(cs: androidx.compose.material3.ColorScheme) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { expanded = true }) {
-            Icon(Icons.Filled.Settings, "主题", tint = cs.onPrimary) }
+            Icon(Icons.Filled.Palette, "主题", tint = cs.onPrimary) }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(text = { Text("🌓 跟随系统") }, onClick = {
                 ThemeState.apply(ThemeState.Mode.Auto); expanded = false })
@@ -125,7 +125,6 @@ private fun TrainTab(vm: TrainViewModel) {
 
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Spacer(Modifier.height(8.dp))
-        // Card（图谱选择/切换已移至打卡页）
         Box(Modifier.weight(1f)) {
             val item = vm.currentItem
             if (item != null) FlashcardView(vm, item)
