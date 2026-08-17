@@ -51,6 +51,7 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     private var phylumCountAlgae = 0
     private var phylumCountZoo = 0
     val currentPhylumCount get() = if (currentMode == "algae") phylumCountAlgae else phylumCountZoo
+    fun phylumCountFor(mode: String) = if (mode == "algae") phylumCountAlgae else phylumCountZoo
 
     // ── Card state ──
     var currentItem by mutableStateOf<AlgaeItem?>(null); private set

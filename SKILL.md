@@ -40,7 +40,7 @@ MainActivity                 ← 入口，AlgaeTheme + TrainViewModel
 ### 数据流
 
 ```
-assets/algae_data.json       ← 静态数据（浮游植物 629 图 / 8 门）
+assets/algae_data.json       ← 静态数据（浮游植物 630 图 / 8 门）
 assets/zooplankton_data.json ← 静态数据（浮游动物 146 图 / 3 门）
 assets/images/*.jpg          ← 浮游植物图片
 assets/zooplankton/*.jpg     ← 浮游动物图片
@@ -117,7 +117,7 @@ SharedPreferences（不用 Room/DataStore）：
    {"items": [{"id": "...", "file": "...", "phylum": "...", "phylumLatin": "...", "genus": "...", "genusLatin": "...", "number": 0}]}
    ```
 2. 图片放入 `assets/images/`（植物）或 `assets/zooplankton/`（动物）
-3. 更新 AboutContent 中的统计数字（`"629 图"` / `"146 图"`）
+3. About 页图数动态显示（`allAlgaeItems.size`），无需手动改；新增后同步本文件中的图数说明
 
 ### 更新版本号
 
@@ -195,7 +195,7 @@ private const val VERSION = "V0.4.1"
     │           ├── MainScreen.kt               ← 训练/错题/关于/打卡区/月历
     │           └── BookShelfScreen.kt          ← 图谱书架
     ├── assets/
-    │   ├── algae_data.json                     ← 浮游植物 629 图
+    │   ├── algae_data.json                     ← 浮游植物 630 图
     │   ├── zooplankton_data.json               ← 浮游动物 146 图
     │   ├── images/                             ← 浮游植物图片
     │   └── zooplankton/                        ← 浮游动物图片

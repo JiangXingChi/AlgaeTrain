@@ -61,7 +61,7 @@ private fun BookCard(vm: TrainViewModel, mode: String, emoji: String, title: Str
                      items: List<AlgaeItem>, onClose: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val selected = vm.currentMode == mode
-    val phylumCount = items.map { it.phylum }.distinct().size
+    val phylumCount = vm.phylumCountFor(mode)
     val known = items.count { vm.isKnownFor(mode, it.id) }
 
     Card(
