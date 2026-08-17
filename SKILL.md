@@ -50,7 +50,8 @@ TrainViewModel               ← 状态管理器（唯一 ViewModel）
   ├── mark(known)            ← 2 档评价，更新 SRS 等级/日期 + 打卡判定
   ├── addMoreCards()         ← 学完后加练：剩余新卡再取一组（不影响打卡，0=学完）
   ├── undo()                 ← 撤销上一步（同时回滚 SRS 状态）
-  ├── restart()              ← 重置两本图谱进度（保留打卡记录）
+  ├── restartBook(mode)      ← 重置指定图谱的进度（日历打卡保留）
+  ├── restartCheckIn()       ← 重置打卡记录/连续天数（学习进度保留）
   ├── setQuota/setRatio      ← 打卡设置，改后立即重建今日队列
   └── isCheckedIn()/streakDays() ← 打卡判定 / 连续天数
 ```
@@ -88,7 +89,7 @@ TrainViewModel               ← 状态管理器（唯一 ViewModel）
 - 复习上限 = 配额 × 比例，超出的到期卡顺延明天
 - **打卡条件**：今日新卡配额完成即打卡（复习卡不阻塞）
 - 打卡记录：`app_settings.checkin_dates`（JSONArray<epochDay>），连续天数从今天/昨天往回数
-- 漏签不补卡；打卡页面在**独立 tab**（今日任务双进度条 + 打卡月历 + 每日新卡量 / 复习比例设置 + 重置），不占训练页空间
+- 漏签不补卡；打卡页面在**独立 tab**（今日任务双进度条 + 打卡月历 + 每日新卡量 / 复习比例设置 + 三个独立重置：植物/动物/打卡），不占训练页空间
 
 ### 主题
 
