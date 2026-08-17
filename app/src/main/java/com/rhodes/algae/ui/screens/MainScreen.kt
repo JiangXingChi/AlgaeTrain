@@ -99,7 +99,7 @@ private fun ThemeToggle(cs: androidx.compose.material3.ColorScheme) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { expanded = true }) {
-            Text("🎨", fontSize = 20.sp) }
+            Icon(Icons.Filled.Settings, "主题", tint = cs.onPrimary) }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(text = { Text("🌓 跟随系统") }, onClick = {
                 ThemeState.apply(ThemeState.Mode.Auto); expanded = false })
@@ -362,7 +362,6 @@ private fun MonthCalendar(vm: TrainViewModel) {
 @Composable
 private fun CompleteView(vm: TrainViewModel) {
     val cs = MaterialTheme.colorScheme
-    var showRestart by remember { mutableStateOf(false) }
     var noMore by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center) {
@@ -386,18 +385,7 @@ private fun CompleteView(vm: TrainViewModel) {
             Text(if (noMore) "图谱已全部学完 🎉" else "再学一组",
                 Modifier.padding(horizontal = 16.dp, vertical = 4.dp), fontSize = 16.sp)
         }
-        Spacer(Modifier.height(6.dp))
-        // 次级入口：重置全部进度（防误触，红色小字）
-        TextButton(onClick = { showRestart = true }) {
-            Text("重新开始（清空全部进度）", fontSize = 12.sp, color = cs.error)
-        }
     }
-    if (showRestart) AlertDialog(
-        onDismissRequest = { showRestart = false },
-        title = { Text("确认重新开始") },
-        text = { Text("两本图谱的学习进度和复习计划将丢失（打卡记录保留），确定？") },
-        confirmButton = { TextButton({ vm.restart(); showRestart = false }) { Text("确定") } },
-        dismissButton = { TextButton({ showRestart = false }) { Text("取消") } })
 }
 
 @Composable
