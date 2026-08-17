@@ -81,6 +81,7 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── 打卡 ──
     var checkinVersion by mutableIntStateOf(0); private set
+    private var checkinCache: List<Long>? = null
 
     // ── Load ──
     fun loadData() {
@@ -307,7 +308,13 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         while (d in days) { n++; d-- }
         return n
     }
-    fun checkedInDays(): List<Long> = appPrefs.getString("checkin_dates", null)?.let { raw ->
+    // 内存缓存打卡日期（写时失效），避免重组期间反复解析 JSONArray
+    fun checkedInDays(): List<Long> {
+        checkinCache?.let { return it }
+        return loadCheckins().also { checkinCache = it }
+    }
+
+    private fun loadCheckins(): List<Long> = appPrefs.getString("checkin_dates", null)?.let { raw ->
         try { JSONArray(raw).let { a -> (0 until a.length()).map { a.getLong(it) } } }
         catch (_: Exception) { emptyList() }
     } ?: emptyList()
@@ -316,6 +323,7 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         if (isCheckedIn(day)) return
         val list = checkedInDays().toMutableList().apply { add(day) }
         appPrefs.edit().putString("checkin_dates", JSONArray(list).toString()).apply()
+        checkinCache = list
         checkinVersion++
     }
 
