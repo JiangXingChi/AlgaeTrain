@@ -579,7 +579,7 @@ private fun AboutTab(vm: TrainViewModel) {
             Text("在「📚 我的图谱书」选择图谱书（浮游植物 / 浮游动物），每天完成新卡和复习任务，按记忆曲线安排复习。",
                 lineHeight = 24.sp, color = cs.onSurface)
             Spacer(Modifier.height(12.dp))
-            for ((n, t) in listOf("1" to "在「图谱书架」选择要学习的图谱书",
+            for ((n, t) in listOf("1" to "在「打卡」页的「我的图谱书」卡片选择/切换图谱书",
                 "2" to "看图片判断是否认识", "3" to "单击卡牌翻面查看名称",
                 "4" to "认识点✓，不认识点✗（不认识会归零重学）",
                 "5" to "点错可点「↩撤销」返回重标", "6" to "不认识自动加入错题集",
