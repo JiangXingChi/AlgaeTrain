@@ -165,7 +165,7 @@ private const val VERSION = "V0.4.1"
 
 ### 图片与性能
 
-- **无内存缓存** — 按需从 assets 解码，629+146 张图按需加载策略合理
+- **无内存缓存** — 按需从 assets 解码，630+146 张图按需加载策略合理
 - `rebuildDailyQueue()` 遍历全量 items 查 prefs，仅在启动/切书/改设置时调用，勿放重组热路径
 
 ### 安全
