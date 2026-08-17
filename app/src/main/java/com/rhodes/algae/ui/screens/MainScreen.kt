@@ -343,13 +343,20 @@ private fun MonthCalendar(vm: TrainViewModel) {
                                     Modifier.border(1.dp, cs.primary, RoundedCornerShape(8.dp))
                                 else Modifier),
                                 contentAlignment = Alignment.Center) {
-                                Text("$day", fontSize = 12.sp,
-                                    color = when {
-                                        checked -> cs.onPrimary
-                                        date.isAfter(today) -> cs.outline.copy(alpha = 0.4f)
-                                        else -> cs.onSurface
-                                    },
-                                    fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal)
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("$day", fontSize = 12.sp,
+                                        color = when {
+                                            checked -> cs.onPrimary
+                                            date.isAfter(today) -> cs.outline.copy(alpha = 0.4f)
+                                            else -> cs.onSurface
+                                        },
+                                        fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal)
+                                    if (checked) {
+                                        Spacer(Modifier.height(1.dp))
+                                        Text("✓", fontSize = 8.sp, fontWeight = FontWeight.Bold,
+                                            color = cs.onPrimary.copy(alpha = 0.9f))
+                                    }
+                                }
                             }
                         }
                     }
