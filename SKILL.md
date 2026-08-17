@@ -47,7 +47,7 @@ assets/zooplankton/*.jpg     ← 浮游动物图片
 
 TrainViewModel               ← 状态管理器（唯一 ViewModel）
   ├── loadData()             ← 从 assets 加载两本图谱（含旧数据迁移）
-  ├── parseItems(json, mode) ← 解析 + 回填 isKnown，mode 决定 prefs 归属
+  ├── parseItems(json, mode) ← 解析 + 旧版 known 迁移，mode 决定 prefs 归属
   ├── rebuildDailyQueue()    ← 每日调度：到期复习（先）+ 新卡配额（后）
   ├── mark(known)            ← 2 档评价，更新 SRS 等级/日期 + 打卡判定
   ├── undo()                 ← 撤销上一步（同时回滚 SRS 状态）

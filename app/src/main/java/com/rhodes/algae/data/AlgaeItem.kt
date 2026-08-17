@@ -8,6 +8,5 @@ data class AlgaeItem(
     val phylumLatin: String = "",
     val genus: String,
     val genusLatin: String = "",
-    val number: Int,
-    val known: Boolean = false
+    val number: Int
 )

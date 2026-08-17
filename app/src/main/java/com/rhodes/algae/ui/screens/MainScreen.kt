@@ -1,5 +1,6 @@
 package com.rhodes.algae.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -55,6 +56,11 @@ fun MainScreen(vm: TrainViewModel) {
     val cs = MaterialTheme.colorScheme
 
     Box(Modifier.fillMaxSize()) {
+        // 全屏 overlay 打开时拦截系统返回键，优先关闭最上层（后注册者优先响应）
+        if (showErrorBook) BackHandler(enabled = true) { showErrorBook = false }
+        if (zoomState != null) BackHandler(enabled = true) { zoomState = null }
+        if (showShelf) BackHandler(enabled = true) { showShelf = false }
+
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -328,6 +334,7 @@ private fun MonthCalendar(vm: TrainViewModel) {
 @Composable
 private fun CompleteView(vm: TrainViewModel) {
     val cs = MaterialTheme.colorScheme
+    var showRestart by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center) {
         Text("🎉", fontSize = 48.sp)
@@ -340,8 +347,14 @@ private fun CompleteView(vm: TrainViewModel) {
             Text("✓ 今日已打卡", Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)) }
         Spacer(Modifier.height(16.dp))
-        Button(onClick = { vm.restart() }) { Text("重新开始") }
+        Button(onClick = { showRestart = true }) { Text("重新开始") }
     }
+    if (showRestart) AlertDialog(
+        onDismissRequest = { showRestart = false },
+        title = { Text("确认重新开始") },
+        text = { Text("两本图谱的学习进度和复习计划将丢失（打卡记录保留），确定？") },
+        confirmButton = { TextButton({ vm.restart(); showRestart = false }) { Text("确定") } },
+        dismissButton = { TextButton({ showRestart = false }) { Text("取消") } })
 }
 
 @Composable

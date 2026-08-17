@@ -97,7 +97,7 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
             migrateLegacy(id, mode)
             AlgaeItem(id, getString("file"), getString("phylum"),
                 optString("phylumLatin"), getString("genus"), optString("genusLatin"),
-                getInt("number"), isKnownFor(mode, id))
+                getInt("number"))
         }}
     }
 
@@ -120,18 +120,13 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // ── SRS 状态（按书隔离）──
-    fun levelFor(mode: String, id: String) = prefsFor(mode).getInt("s_$id", 0)
     fun level(id: String) = prefsFor(currentMode).getInt("s_$id", 0)
-    private fun setLevel(id: String, v: Int) = prefs().edit().putInt("s_$id", v).apply()
     fun dueDayFor(mode: String, id: String) = prefsFor(mode).getLong("d_$id", 0L)
-    private fun setDue(id: String, d: Long) = prefs().edit().putLong("d_$id", d).apply()
 
     // ── 掌握 / 错误 ──
     fun isKnownFor(mode: String, id: String) = prefsFor(mode).getBoolean("k_$id", false)
     fun isKnown(id: String) = prefsFor(currentMode).getBoolean("k_$id", false)
-    private fun setKnown(id: String, v: Boolean) = prefs().edit().putBoolean("k_$id", v).apply()
     fun errCount(id: String) = prefs().getInt("e_$id", 0)
-    private fun addErr(id: String) = prefs().edit().putInt("e_$id", errCount(id) + 1).apply()
 
     // ── 每日队列调度 ──
     private fun initQueue() {
@@ -141,12 +136,14 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         } else {
             rebuildDailyQueue()
         }
+        updateStats()
         nextCard()
     }
 
     // 重建今日队列：到期复习卡（按到期先后）+ 今日新卡（配额内），先复习后新学
     private fun rebuildDailyQueue() {
         val t = today()
+        val mode = currentMode
         // 范围：整本书，或按过滤条件（预留：filter / phylumFilter）
         var scope = allItems
         scope = when (filter) {
@@ -155,12 +152,15 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
             else -> scope
         }
         phylumFilter?.let { pf -> scope = scope.filter { it.phylum == pf } }
+        // 一次性读取到期日，避免逐卡多次访问 SharedPreferences
+        val dueMap = HashMap<String, Long>(scope.size)
+        scope.forEach { dueMap[it.id] = prefsFor(mode).getLong("d_${it.id}", 0L) }
         // 到期卡：已排期且到期（含忘记归零的卡，等级 0 但 d_ 已设置）
-        val due = scope.filter { dueDayFor(currentMode, it.id) != 0L && dueDayFor(currentMode, it.id) <= t }
-            .sortedBy { dueDayFor(currentMode, it.id) }
+        val due = scope.filter { val d = dueMap[it.id] ?: 0L; d != 0L && d <= t }
+            .sortedBy { dueMap[it.id] }
         val reviews = due.take(dailyQuota * reviewRatio)
         // 新卡：从未排期（d_ == 0）
-        val newCards = scope.filter { dueDayFor(currentMode, it.id) == 0L }
+        val newCards = scope.filter { dueMap[it.id] == 0L }
             .shuffled().take(dailyQuota)
         cardQueue = reviews + newCards
         queueDate = t
@@ -205,22 +205,23 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         val lv = level(item.id); val due = dueDayFor(currentMode, item.id)
         val isNew = lv == 0 && due == 0L
         history.add(Snap(item, isKnown(item.id), errCount(item.id), lv, due, known, isNew))
-        setKnown(item.id, known)
+        val e = prefs().edit().putBoolean("k_${item.id}", known)
         if (known) {
             // 认识：等级 +1（封顶 5），按间隔表排下次复习
-            val nl = (lv + 1).coerceAtMost(5)
-            setLevel(item.id, nl)
-            setDue(item.id, today() + INTERVAL_DAYS[lv.coerceAtMost(5)])
+            e.putInt("s_${item.id}", (lv + 1).coerceAtMost(5))
+            e.putLong("d_${item.id}", today() + INTERVAL_DAYS[lv.coerceAtMost(5)])
             cardQueue = cardQueue.drop(1)
-            updateStats()
         } else {
             // 不认识：等级归 0，明天再排，卡回队尾当天重练
-            addErr(item.id); errorBookVersion++
-            setLevel(item.id, 0)
-            setDue(item.id, today() + 1)
+            e.putInt("e_${item.id}", errCount(item.id) + 1)
+            e.putInt("s_${item.id}", 0)
+            e.putLong("d_${item.id}", today() + 1)
             cardQueue = cardQueue.drop(1) + item
+            errorBookVersion++
         }
+        e.apply()
         if (isNew) newDone++ else if (lv >= 1) reviewDone++
+        updateStats()
         checkCheckIn()
         saveQueue(); nextCard()
     }
@@ -228,16 +229,18 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     fun undo() {
         if (history.isEmpty()) return
         val s = history.removeLast()
-        setKnown(s.item.id, s.wasKnown)
-        prefs().edit().putInt("e_${s.item.id}", s.wasErr).apply()
-        setLevel(s.item.id, s.wasLevel)
-        setDue(s.item.id, s.wasDue)
+        prefs().edit()
+            .putBoolean("k_${s.item.id}", s.wasKnown)
+            .putInt("e_${s.item.id}", s.wasErr)
+            .putInt("s_${s.item.id}", s.wasLevel)
+            .putLong("d_${s.item.id}", s.wasDue)
+            .apply()
         if (!s.marked) cardQueue = cardQueue.dropLast(1) // 移除"不认识"放回队尾的那份
         cardQueue = listOf(s.item) + cardQueue
         currentItem = s.item; flipped = false
         if (s.wasNew) newDone = (newDone - 1).coerceAtLeast(0)
         else if (s.wasLevel >= 1) reviewDone = (reviewDone - 1).coerceAtLeast(0)
-        if (s.marked) updateStats()
+        updateStats()
         saveQueue()
     }
 
