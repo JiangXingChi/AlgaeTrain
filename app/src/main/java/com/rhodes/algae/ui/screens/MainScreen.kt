@@ -295,7 +295,7 @@ private fun MonthCalendar(vm: TrainViewModel) {
             }
         }
         Spacer(Modifier.height(4.dp))
-        val firstDow = month.atDay(1).dayOfWeek.value % 7 // 周一 = 0
+        val firstDow = (month.atDay(1).dayOfWeek.value + 6) % 7 // 周一 = 0（value: 周一1..周日7）
         val days = month.lengthOfMonth()
         val totalCells = ((firstDow + days + 6) / 7) * 7
         for (row in 0 until totalCells step 7) {

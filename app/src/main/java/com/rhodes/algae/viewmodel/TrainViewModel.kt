@@ -81,6 +81,8 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         if (allAlgaeItems.isNotEmpty() && allZooItems.isNotEmpty()) return
         isLoading = true
         try {
+            // 恢复上次选择的图谱书（否则默认植物书）
+            currentMode = appPrefs.getString("selected_book", "algae") ?: "algae"
             val app = getApplication<Application>()
             allAlgaeItems = parseItems(app.assets.open("algae_data.json").reader().readText(), "algae")
             try {
