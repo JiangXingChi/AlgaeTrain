@@ -255,6 +255,10 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
                             modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp))
                     }
                 }
+                // 始终显示当前复习比例（与新卡量提示一致）
+                Spacer(Modifier.height(4.dp))
+                Text("当前 新学:复习 = 1:${vm.reviewRatio}",
+                    fontSize = 12.sp, fontWeight = FontWeight.Bold, color = cs.primary)
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("重置：清空两本图谱的学习进度", Modifier.weight(1f),
