@@ -12,8 +12,8 @@ android {
         applicationId = "com.rhodes.algae"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "V0.1.4"
+        versionCode = 6
+        versionName = "V0.3.1"
     }
 
     buildFeatures {
@@ -48,5 +48,6 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-core")
     implementation("androidx.compose.foundation:foundation")
+    implementation("io.coil-kt:coil-compose:2.7.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

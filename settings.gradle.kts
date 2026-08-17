@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "AlgaeTrain"
+rootProject.name = "识浮游"
 include(":app")

@@ -9,230 +9,172 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import com.rhodes.algae.data.AlgaeItem
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.InputStreamReader
 
 class TrainViewModel(application: Application) : AndroidViewModel(application) {
 
-    // ── persistent state via SharedPreferences ──
-    private val prefs = application.getSharedPreferences("algae_train", Context.MODE_PRIVATE)
+    // ── Mode ──
+    var currentMode by mutableStateOf("algae"); private set
+    val displayPrefix get() = if (currentMode == "algae") "images/" else "zooplankton/"
 
-    var allItems: List<AlgaeItem> = emptyList()
-        private set
+    // ── Persistence ──
+    private val prefsAlgae = application.getSharedPreferences("algae_train", Context.MODE_PRIVATE)
+    private val prefsZoo = application.getSharedPreferences("zoo_train", Context.MODE_PRIVATE)
+    private fun prefs() = if (currentMode == "algae") prefsAlgae else prefsZoo
 
-    var remaining by mutableStateOf<List<AlgaeItem>>(emptyList())
-        private set
-    var currentItem by mutableStateOf<AlgaeItem?>(null)
-        private set
-    var flipped by mutableStateOf(false)
-        private set
+    // ── Data ──
+    var allAlgaeItems = emptyList<AlgaeItem>(); private set
+    var allZooItems = emptyList<AlgaeItem>(); private set
+    val allItems get() = if (currentMode == "algae") allAlgaeItems else allZooItems
 
-    // undo history
-    private data class MarkSnap(val item: AlgaeItem, val wasKnown: Boolean,
-                                 val wasErrCount: Int, val markedKnown: Boolean)
-    private val markHistory = mutableListOf<MarkSnap>()
-    val canUndo: Boolean get() = markHistory.isNotEmpty()
+    // ── Card state (queue-based, no random repeating) ──
+    var currentItem by mutableStateOf<AlgaeItem?>(null); private set
+    var flipped by mutableStateOf(false); private set
+    private var cardQueue = emptyList<AlgaeItem>()
 
-    var seenCount by mutableIntStateOf(0)
-        private set
-    var knownCount by mutableIntStateOf(0)
-        private set
+    // ── Undo ──
+    private data class Snap(val item: AlgaeItem, val wasKnown: Boolean, val wasErr: Int, val marked: Boolean)
+    private val history = mutableListOf<Snap>()
+    val canUndo get() = history.isNotEmpty()
 
-    // filter state
-    var filter by mutableStateOf("all")
-        private set   // "all" | "unknown" | "known"
-    var phylumFilter by mutableStateOf<String?>(null)
-        private set
+    // ── Stats ──
+    var seenCount by mutableIntStateOf(0); private set
+    var knownCount by mutableIntStateOf(0); private set
+    var isLoading by mutableStateOf(false); private set
 
-    // ── load ──
+    // ── Filters ──
+    var filter by mutableStateOf("all"); private set
+    var phylumFilter by mutableStateOf<String?>(null); private set
+
+    // ── Load ──
     fun loadData() {
-        if (allItems.isNotEmpty()) return
+        if (allAlgaeItems.isNotEmpty() && allZooItems.isNotEmpty()) return
+        isLoading = true
         try {
-            val reader = InputStreamReader(getApplication<Application>().assets.open("algae_data.json"))
-            val root = JSONObject(reader.readText())
-            val arr = root.getJSONArray("items")
-            val list = mutableListOf<AlgaeItem>()
-            for (i in 0 until arr.length()) {
-                val o = arr.getJSONObject(i)
-                list.add(AlgaeItem(
-                    id = o.getString("id"),
-                    file = o.getString("file"),
-                    phylum = o.getString("phylum"),
-                    phylumLatin = o.optString("phylumLatin", ""),
-                    genus = o.getString("genus"),
-                    genusLatin = o.optString("genusLatin", ""),
-                    number = o.getInt("number"),
-                    known = isKnown(o.getString("id"))
-                ))
-            }
-            allItems = list
-            initPool()
-        } catch (e: Exception) {
-            Log.e("AlgaeTrain", "Failed to load data", e)
-        }
+            val app = getApplication<Application>()
+            allAlgaeItems = parseItems(app.assets.open("algae_data.json").reader().readText())
+            try {
+                allZooItems = parseItems(app.assets.open("zooplankton_data.json").reader().readText())
+            } catch (_: Exception) { Log.w("识浮游", "zooplankton_data.json missing") }
+            initQueue()
+        } catch (e: Exception) { Log.e("识浮游", "Load failed", e) }
+        finally { isLoading = false }
     }
 
-    // ── SharedPreferences helpers ──
-    fun isKnown(id: String): Boolean = prefs.getBoolean("k_$id", false)
-    private fun setKnown(id: String, v: Boolean) = prefs.edit().putBoolean("k_$id", v).apply()
-    fun errCount(id: String): Int = prefs.getInt("e_$id", 0)
-    private fun addErr(id: String) {
-        prefs.edit().putInt("e_$id", errCount(id) + 1).apply()
+    private fun parseItems(json: String) = JSONObject(json).getJSONArray("items").let { arr ->
+        (0 until arr.length()).map { arr.getJSONObject(it).run {
+            AlgaeItem(getString("id"), getString("file"), getString("phylum"),
+                optString("phylumLatin"), getString("genus"), optString("genusLatin"),
+                getInt("number"), isKnown(getString("id")))
+        }}
     }
 
-    // ── pool management ──
+    fun switchMode(mode: String) {
+        if (mode == currentMode) return
+        currentMode = mode; history.clear(); seenCount = 0; initQueue()
+    }
+
+    // ── Persistence helpers ──
+    fun isKnown(id: String) = prefs().getBoolean("k_$id", false)
+    private fun setKnown(id: String, v: Boolean) = prefs().edit().putBoolean("k_$id", v).apply()
+    fun errCount(id: String) = prefs().getInt("e_$id", 0)
+    private fun addErr(id: String) = prefs().edit().putInt("e_$id", errCount(id) + 1).apply()
+
+    // ── Queue ──
     private fun buildPool(): List<AlgaeItem> {
         var p = allItems
-        p = when (filter) {
-            "known" -> p.filter { isKnown(it.id) }
-            "unknown" -> p.filter { !isKnown(it.id) }
-            else -> p
-        }
+        p = when (filter) { "known" -> p.filter { isKnown(it.id) }; "unknown" -> p.filter { !isKnown(it.id) }; else -> p }
         phylumFilter?.let { pf -> p = p.filter { it.phylum == pf } }
         return p
     }
 
-    private fun initPool() {
-        val saved = loadRemaining()
-        if (saved != null && saved.isNotEmpty()) {
-            remaining = saved
-        } else {
-            val pool = buildPool()
-            remaining = pool.filter { !isKnown(it.id) }.shuffled() +
-                        pool.filter { isKnown(it.id) }.shuffled()
-        }
-        updateStats()
-        nextCard()
+    private fun initQueue() {
+        val saved = loadQueue()
+        cardQueue = if (saved != null && saved.isNotEmpty()) saved
+        else buildPool().let { it.filter { !isKnown(it.id) }.shuffled() + it.filter { isKnown(it.id) }.shuffled() }
+        updateStats(); nextCard()
     }
 
-    private fun loadRemaining(): List<AlgaeItem>? {
-        val ids = prefs.getString("remaining_ids", null) ?: return null
-        val idList = try {
-            JSONArray(ids).let { arr -> (0 until arr.length()).map { arr.getString(it) } }
-        } catch (_: Exception) { return null }
-        return idList.mapNotNull { id -> allItems.find { it.id == id } }
+    private fun loadQueue() = prefs().getString("queue_ids", null)?.let { ids ->
+        try { JSONArray(ids).let { arr -> (0 until arr.length()).map { arr.getString(it) } } }
+        catch (_: Exception) { null }
+    }?.mapNotNull { id -> allItems.find { it.id == id } }
+
+    private fun saveQueue() {
+        prefs().edit().putString("queue_ids", JSONArray(cardQueue.map { it.id }).toString()).apply()
     }
 
-    private fun saveRemaining() {
-        val arr = JSONArray(remaining.map { it.id })
-        prefs.edit().putString("remaining_ids", arr.toString()).apply()
-    }
-
-    fun clearSavedRemaining() {
-        prefs.edit().remove("remaining_ids").apply()
-    }
-
-    // ── card flow ──
     fun nextCard() {
-        if (remaining.isEmpty()) {
-            currentItem = null
-            clearSavedRemaining()
-            return
-        }
-        currentItem = remaining.random()
-        flipped = false
+        if (cardQueue.isEmpty()) { currentItem = null; prefs().edit().remove("queue_ids").apply(); return }
+        currentItem = cardQueue.first(); flipped = false
     }
 
     fun flip() { flipped = !flipped }
 
     fun mark(known: Boolean) {
         val item = currentItem ?: return
-        markHistory.add(MarkSnap(item, isKnown(item.id), errCount(item.id), known))
+        history.add(Snap(item, isKnown(item.id), errCount(item.id), known))
         setKnown(item.id, known)
         if (known) {
-            remaining = remaining.filter { it.id != item.id }
+            cardQueue = cardQueue.drop(1)
+            seenCount++; updateStats()
         } else {
-            addErr(item.id)
+            addErr(item.id); errorBookVersion++
+            cardQueue = cardQueue.drop(1) + item  // 不认识 → 移到队尾，不推进进度
+            seenCount++
         }
-        seenCount++
-        updateStats()
-        saveRemaining()
-        nextCard()
+        saveQueue(); nextCard()
     }
 
     fun undo() {
-        if (markHistory.isEmpty()) return
-        val snap = markHistory.removeLast()
-        setKnown(snap.item.id, snap.wasKnown)
-        prefs.edit().putInt("e_${snap.item.id}", snap.wasErrCount).apply()
-        if (snap.markedKnown) {
-            remaining = remaining + snap.item
+        if (history.isEmpty()) return
+        val s = history.removeLast()
+        setKnown(s.item.id, s.wasKnown)
+        prefs().edit().putInt("e_${s.item.id}", s.wasErr).apply()
+        if (!s.marked) {
+            errorBookVersion++
+            cardQueue = cardQueue.dropLast(1)  // 从队尾移除"不认识"放回的那份
         }
-        currentItem = snap.item
-        flipped = false
-        seenCount--
-        updateStats()
-        saveRemaining()
+        cardQueue = listOf(s.item) + cardQueue
+        currentItem = s.item; flipped = false
+        seenCount = (seenCount - 1).coerceAtLeast(0)
+        if (s.marked) updateStats()
+        saveQueue()
     }
 
-    // ── restart ──
     fun restart() {
-        prefs.edit().clear().apply()
-        markHistory.clear()
-        val pool = buildPool()
-        remaining = pool.shuffled()
-        seenCount = 0
-        clearSavedRemaining()
-        updateStats()
-        nextCard()
+        val app = getApplication<Application>()
+        listOf("algae_train", "zoo_train").forEach { name ->
+            app.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear().apply()
+        }
+        history.clear()
+        cardQueue = buildPool().shuffled(); seenCount = 0
+        prefs().edit().remove("queue_ids").apply(); updateStats(); nextCard()
     }
 
-    fun fullReset() {
-        prefs.edit().clear().apply()
-        remaining = allItems.shuffled()
-        seenCount = 0
-        clearSavedRemaining()
-        updateStats()
-        nextCard()
-    }
-
-    // ── filters ──
-    fun selectFilter(f: String) {
-        filter = f
-        val pool = buildPool()
-        remaining = pool.shuffled()
-        seenCount = 0
-        markHistory.clear()
-        clearSavedRemaining()
-        updateStats()
-        nextCard()
-    }
     fun selectPhylum(p: String?) {
         phylumFilter = p
-        val pool = buildPool()
-        remaining = pool.shuffled()
-        seenCount = 0
-        markHistory.clear()
-        clearSavedRemaining()
-        updateStats()
-        nextCard()
+        cardQueue = buildPool().shuffled()
+        history.clear(); seenCount = 0
+        prefs().edit().remove("queue_ids").apply(); updateStats(); nextCard()
     }
 
-    // ── stats ──
-    private fun updateStats() {
-        knownCount = allItems.count { isKnown(it.id) }
-    }
+    // ── Stats ──
+    private fun updateStats() { knownCount = allItems.count { isKnown(it.id) } }
+    fun poolTotal() = buildPool().size
+    fun poolDone() = poolTotal() - cardQueue.size
 
-    fun poolTotal(): Int = buildPool().size
-    fun poolDone(): Int = poolTotal() - remaining.size
-
-    // ── error book ──
-    var errorBookVersion by mutableIntStateOf(0)
-        private set
-
-    fun errorBookEntries(): List<Pair<AlgaeItem, Int>> =
-        allItems.filter { errCount(it.id) > 0 }
-            .map { it to errCount(it.id) }
-            .sortedByDescending { it.second }
-
+    // ── Error book ──
+    var errorBookVersion by mutableIntStateOf(0); private set
+    fun errorBook() = allItems.filter { errCount(it.id) > 0 }.map { it to errCount(it.id) }.sortedByDescending { it.second }
     fun clearErrors() {
-        val editor = prefs.edit()
-        allItems.forEach { editor.remove("e_${it.id}") }
-        editor.apply()
+        val app = getApplication<Application>()
+        listOf("algae_train", "zoo_train").forEach { name ->
+            app.getSharedPreferences(name, Context.MODE_PRIVATE).edit().also { e ->
+                (allAlgaeItems + allZooItems).distinctBy { it.id }.forEach { e.remove("e_${it.id}") }
+            }.apply()
+        }
         errorBookVersion++
     }
 }
