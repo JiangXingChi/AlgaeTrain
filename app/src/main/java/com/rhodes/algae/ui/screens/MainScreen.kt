@@ -224,7 +224,9 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("🗓 打卡月历", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cs.onSurface)
                     Spacer(Modifier.weight(1f))
-                    Text("连续 ${vm.streakDays()} 天 🔥 · 累计 ${vm.checkedInDays().size} 天", fontSize = 12.sp, color = cs.onSurfaceVariant)
+                    Text(if (vm.streakDays() >= 2) "连续 ${vm.streakDays()} 天 🔥 · 累计 ${vm.checkedInDays().size} 天"
+                        else "连续 ${vm.streakDays()} 天 · 累计 ${vm.checkedInDays().size} 天",
+                        fontSize = 12.sp, color = cs.onSurfaceVariant)
                     Spacer(Modifier.width(8.dp))
                     if (vm.isCheckedIn()) Surface(shape = RoundedCornerShape(12.dp), color = Color(0xFFC8E6C9)) {
                         Text("✓ 已打卡", Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
@@ -278,7 +280,7 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
                 Text("字体大小", fontSize = 13.sp, color = cs.outline)
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    listOf(0.85f to "小", 1f to "标准", 1.2f to "大", 1.4f to "特大").forEach { (s, label) ->
+                    listOf(1f to "标准", 1.2f to "大", 1.4f to "特大").forEach { (s, label) ->
                         FilterChip(selected = ThemeState.fontScale == s, onClick = { ThemeState.applyFontScale(s) },
                             label = { Text(label, fontSize = 12.sp) },
                             modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp))
@@ -287,7 +289,7 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
                 // 始终显示当前字体大小档位
                 Spacer(Modifier.height(4.dp))
                 Text("当前 ${when (ThemeState.fontScale) {
-                    0.85f -> "小"; 1f -> "标准"; 1.2f -> "大"; 1.4f -> "特大"
+                    1f -> "标准"; 1.2f -> "大"; 1.4f -> "特大"
                     else -> "${ThemeState.fontScale}x" }}",
                     fontSize = 12.sp, fontWeight = FontWeight.Bold, color = cs.primary)
                 Spacer(Modifier.height(4.dp))
