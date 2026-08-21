@@ -1,7 +1,6 @@
 package com.rhodes.algae.ui.screens
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -140,7 +139,7 @@ private fun TrainTab(vm: TrainViewModel) {
 @Composable
 private fun TodayTaskProgress(vm: TrainViewModel) {
     val cs = MaterialTheme.colorScheme
-    Column(Modifier.fillMaxWidth().border(2.dp, cs.outline, RoundedCornerShape(2.dp))
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
         .background(cs.surfaceVariant).padding(horizontal = 14.dp, vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("📚 今日复习", fontSize = 12.sp, color = cs.outline)
@@ -151,7 +150,7 @@ private fun TodayTaskProgress(vm: TrainViewModel) {
         Spacer(Modifier.height(4.dp))
         LinearProgressIndicator(
             progress = { if (vm.reviewTotal == 0) 0f else vm.reviewDone.toFloat() / vm.reviewTotal },
-            Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(2.dp)),
+            Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(12.dp)),
             color = cs.secondary, trackColor = cs.surface)
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -163,7 +162,7 @@ private fun TodayTaskProgress(vm: TrainViewModel) {
         Spacer(Modifier.height(4.dp))
         LinearProgressIndicator(
             progress = { if (vm.newTotal == 0) 0f else vm.newDone.toFloat() / vm.newTotal },
-            Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(2.dp)),
+            Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(12.dp)),
             color = cs.primary, trackColor = cs.surface)
         Spacer(Modifier.height(6.dp))
         // 当前组 + 剩余张数，让循环重练看得到边界
@@ -187,9 +186,8 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
         // 我的图谱书 + 总进度（点击换书）
         item {
             Card(Modifier.fillMaxWidth().clickable(onClick = onOpenShelf),
-                shape = RoundedCornerShape(2.dp),
-                colors = CardDefaults.cardColors(containerColor = cs.surfaceVariant),
-                border = BorderStroke(2.dp, cs.outline)) {
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = cs.surfaceVariant)) {
                 Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Text(if (vm.currentMode == "algae") "🌿" else "🦠", fontSize = 22.sp)
@@ -203,7 +201,7 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
                         Spacer(Modifier.height(8.dp))
                         LinearProgressIndicator(
                             progress = { if (vm.allItems.isEmpty()) 0f else vm.knownCount.toFloat() / vm.allItems.size },
-                            Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(2.dp)),
+                            Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(4.dp)),
                             color = cs.primary, trackColor = cs.surface)
                         Spacer(Modifier.height(4.dp))
                         Text("已掌握 ${vm.knownCount}/${vm.allItems.size} · 未掌握 ${vm.allItems.size - vm.knownCount}",
@@ -211,7 +209,7 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
                     }
                     Spacer(Modifier.width(8.dp))
                     // 显眼的切换按钮
-                    Surface(shape = RoundedCornerShape(2.dp), color = cs.primary) {
+                    Surface(shape = RoundedCornerShape(12.dp), color = cs.primary) {
                         Text("切换", Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                             fontSize = 13.sp, fontWeight = FontWeight.Bold, color = cs.onPrimary)
                     }
@@ -221,14 +219,14 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
 
         // 打卡月历（标题行含连续天数 + 已打卡状态；今日任务进度在训练页显示）
         item {
-            Column(Modifier.fillMaxWidth().border(2.dp, cs.outline, RoundedCornerShape(2.dp))
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
                 .background(cs.surfaceVariant).padding(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("🗓 打卡月历", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cs.onSurface)
                     Spacer(Modifier.weight(1f))
                     Text("连续 ${vm.streakDays()} 天 🔥 · 累计 ${vm.checkedInDays().size} 天", fontSize = 12.sp, color = cs.onSurfaceVariant)
                     Spacer(Modifier.width(8.dp))
-                    if (vm.isCheckedIn()) Surface(shape = RoundedCornerShape(2.dp), color = Color(0xFFC8E6C9)) {
+                    if (vm.isCheckedIn()) Surface(shape = RoundedCornerShape(12.dp), color = Color(0xFFC8E6C9)) {
                         Text("✓ 已打卡", Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
                             fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)) }
                 }
@@ -239,7 +237,7 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
 
         // 打卡设置
         item {
-            Column(Modifier.fillMaxWidth().border(2.dp, cs.outline, RoundedCornerShape(2.dp))
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
                 .background(cs.surfaceVariant).padding(12.dp)) {
                 Text("⚙️ 打卡设置", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cs.onSurface)
                 Spacer(Modifier.height(10.dp))
@@ -249,13 +247,13 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
                     TrainViewModel.QUOTA_OPTIONS.forEach { q ->
                         FilterChip(selected = vm.dailyQuota == q, onClick = { vm.setQuota(q) },
                             label = { Text("$q", fontSize = 12.sp) },
-                            modifier = Modifier.weight(1f), shape = RoundedCornerShape(2.dp))
+                            modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp))
                     }
                     FilterChip(
                         selected = vm.dailyQuota !in TrainViewModel.QUOTA_OPTIONS,
                         onClick = { quotaInput = vm.dailyQuota.toString(); showQuotaDialog = true },
                         label = { Text("自定义", fontSize = 12.sp) },
-                        modifier = Modifier.weight(1f), shape = RoundedCornerShape(2.dp))
+                        modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp))
                 }
                 // 始终显示当前实际新卡量（档位/自定义都可见）
                 Spacer(Modifier.height(4.dp))
@@ -269,7 +267,7 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
                     TrainViewModel.RATIO_OPTIONS.forEach { r ->
                         FilterChip(selected = vm.reviewRatio == r, onClick = { vm.setRatio(r) },
                             label = { Text("1:$r", fontSize = 12.sp) },
-                            modifier = Modifier.weight(1f), shape = RoundedCornerShape(2.dp))
+                            modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp))
                     }
                 }
                 // 始终显示当前复习比例（与新卡量提示一致）
@@ -377,10 +375,10 @@ private fun MonthCalendar(vm: TrainViewModel) {
                             val date = month.atDay(day)
                             val checked = date.toEpochDay() in checkins
                             val isToday = date == today
-                            Box(Modifier.fillMaxSize().clip(RoundedCornerShape(2.dp))
+                            Box(Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp))
                                 .background(if (checked) cs.primary else Color.Transparent)
                                 .then(if (isToday)
-                                    Modifier.border(1.dp, cs.primary, RoundedCornerShape(2.dp))
+                                    Modifier.border(1.dp, cs.primary, RoundedCornerShape(8.dp))
                                 else Modifier),
                                 contentAlignment = Alignment.Center) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -418,7 +416,7 @@ private fun CompleteView(vm: TrainViewModel) {
         Text("已掌握 ${vm.knownCount}/${vm.allItems.size} · 连续打卡 ${vm.streakDays()} 天",
             color = cs.outline)
         Spacer(Modifier.height(8.dp))
-        if (vm.isCheckedIn()) Surface(shape = RoundedCornerShape(2.dp), color = Color(0xFFC8E6C9)) {
+        if (vm.isCheckedIn()) Surface(shape = RoundedCornerShape(12.dp), color = Color(0xFFC8E6C9)) {
             Text("✓ 今日已打卡", Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)) }
         Spacer(Modifier.height(20.dp))
@@ -428,7 +426,7 @@ private fun CompleteView(vm: TrainViewModel) {
             else noMore = true
         }, enabled = !noMore,
             colors = ButtonDefaults.buttonColors(containerColor = cs.primary),
-            shape = RoundedCornerShape(2.dp)) {
+            shape = RoundedCornerShape(12.dp)) {
             Text(if (noMore) "图谱已全部学完 🎉" else "再学一组",
                 Modifier.padding(horizontal = 16.dp, vertical = 4.dp), fontSize = 16.sp)
         }
@@ -441,9 +439,8 @@ private fun FlashcardView(vm: TrainViewModel, item: AlgaeItem) {
     val known = vm.isKnown(item.id)
 
     Column(Modifier.fillMaxSize()) {
-        Card(Modifier.fillMaxWidth().weight(1f), shape = RoundedCornerShape(2.dp),
-            colors = CardDefaults.cardColors(containerColor = cs.surface),
-            border = BorderStroke(2.dp, cs.outline)) {
+        Card(Modifier.fillMaxWidth().weight(1f), shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = cs.surface)) {
             Box(Modifier.fillMaxSize()) {
                 if (!vm.flipped) {
                     var zoomScale by remember { mutableFloatStateOf(1f) }
@@ -475,7 +472,7 @@ private fun FlashcardView(vm: TrainViewModel, item: AlgaeItem) {
                                 )
                             })
                         Surface(Modifier.align(Alignment.BottomEnd).padding(8.dp),
-                            shape = RoundedCornerShape(2.dp), color = Color(0x73000000)) {
+                            shape = RoundedCornerShape(12.dp), color = Color(0x73000000)) {
                             Text(if (zoomScale > 1.01f) "👆 双击还原" else "👆 点击翻面 · 双指缩放",
                                 Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                 fontSize = 12.sp, color = Color.White)
@@ -497,11 +494,11 @@ private fun FlashcardView(vm: TrainViewModel, item: AlgaeItem) {
                             Text(item.genusLatin, fontSize = 16.sp,
                                 color = cs.primary.copy(alpha = 0.5f), fontStyle = FontStyle.Italic)
                         Spacer(Modifier.height(12.dp))
-                        if (known) Surface(shape = RoundedCornerShape(2.dp), color = Color(0xFFC8E6C9)) {
+                        if (known) Surface(shape = RoundedCornerShape(12.dp), color = Color(0xFFC8E6C9)) {
                             Text("✓ 已掌握", Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                                 fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)) }
                         Spacer(Modifier.height(16.dp))
-                        Surface(shape = RoundedCornerShape(2.dp), color = Color(0x73000000)) {
+                        Surface(shape = RoundedCornerShape(8.dp), color = Color(0x73000000)) {
                             Text("👆 点击翻转", Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                 fontSize = 12.sp, color = Color.White)
                         }
@@ -517,11 +514,11 @@ private fun FlashcardView(vm: TrainViewModel, item: AlgaeItem) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button({ vm.mark(true) }, Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
-                shape = RoundedCornerShape(2.dp)) {
+                shape = RoundedCornerShape(14.dp)) {
                 Text("✓ 认识", Modifier.padding(vertical = 8.dp), fontSize = 16.sp) }
             Button({ vm.mark(false) }, Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935)),
-                shape = RoundedCornerShape(2.dp)) {
+                shape = RoundedCornerShape(14.dp)) {
                 Text("✗ 不认识", Modifier.padding(vertical = 8.dp), fontSize = 16.sp) }
         }
         Spacer(Modifier.height(16.dp))
@@ -548,7 +545,7 @@ private fun AboutTab(vm: TrainViewModel) {
                 "7" to "每日新卡学完自动打卡，可翻看打卡月历",
                 "8" to "学完可点「再学一组」继续加练（不影响打卡）")) {
                 Row(Modifier.padding(vertical = 4.dp)) {
-                    Box(Modifier.size(24.dp).clip(RoundedCornerShape(2.dp)).background(cs.primaryContainer),
+                    Box(Modifier.size(24.dp).clip(RoundedCornerShape(8.dp)).background(cs.primaryContainer),
                         contentAlignment = Alignment.Center) {
                         Text(n, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
                     Spacer(Modifier.width(10.dp))
@@ -584,7 +581,7 @@ private fun AboutTab(vm: TrainViewModel) {
             val authors = listOf("喝茶喵", "蛋蛋", "进宝")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 authors.forEach { name ->
-                    Surface(Modifier.weight(1f), shape = RoundedCornerShape(2.dp),
+                    Surface(Modifier.weight(1f), shape = RoundedCornerShape(12.dp),
                         color = cs.primaryContainer) {
                         Text(name, Modifier.padding(vertical = 10.dp).fillMaxWidth(),
                             textAlign = TextAlign.Center,
@@ -603,8 +600,6 @@ private fun AboutTab(vm: TrainViewModel) {
             Text("📘 《澳门常见淡水藻类图谱》", fontWeight = FontWeight.Bold, color = cs.onSurface)
             Text("📙 《中国流域常见水生生物图集》", fontWeight = FontWeight.Bold, color = cs.onSurface)
             Spacer(Modifier.height(8.dp))
-            Text("🔤 像素字体 Zpix（SolidZORO，OFL 开源许可）", color = cs.onSurface)
-            Spacer(Modifier.height(8.dp))
             HorizontalDivider()
             Spacer(Modifier.height(8.dp))
             Text("⚠️ 版权声明", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = cs.error)
@@ -620,9 +615,8 @@ private fun AboutTab(vm: TrainViewModel) {
 @Composable
 private fun AboutCard(title: String, cs: androidx.compose.material3.ColorScheme,
                       content: @Composable ColumnScope.() -> Unit) {
-    Card(shape = RoundedCornerShape(2.dp),
-        colors = CardDefaults.cardColors(containerColor = cs.surfaceVariant),
-        border = BorderStroke(2.dp, cs.outline)) {
+    Card(shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = cs.surfaceVariant)) {
         Column(Modifier.padding(20.dp)) {
             Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = cs.primary)
             Spacer(Modifier.height(12.dp))
