@@ -274,6 +274,22 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
                 Spacer(Modifier.height(4.dp))
                 Text("当前 新学:复习 = 1:${vm.reviewRatio}",
                     fontSize = 12.sp, fontWeight = FontWeight.Bold, color = cs.primary)
+                Spacer(Modifier.height(10.dp))
+                Text("字体大小", fontSize = 13.sp, color = cs.outline)
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    listOf(0.85f to "小", 1f to "标准", 1.2f to "大", 1.4f to "特大").forEach { (s, label) ->
+                        FilterChip(selected = ThemeState.fontScale == s, onClick = { ThemeState.applyFontScale(s) },
+                            label = { Text(label, fontSize = 12.sp) },
+                            modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp))
+                    }
+                }
+                // 始终显示当前字体大小档位
+                Spacer(Modifier.height(4.dp))
+                Text("当前 ${when (ThemeState.fontScale) {
+                    0.85f -> "小"; 1f -> "标准"; 1.2f -> "大"; 1.4f -> "特大"
+                    else -> "${ThemeState.fontScale}x" }}",
+                    fontSize = 12.sp, fontWeight = FontWeight.Bold, color = cs.primary)
                 Spacer(Modifier.height(4.dp))
                 Text("重置", fontSize = 13.sp, color = cs.outline)
                 Spacer(Modifier.height(2.dp))

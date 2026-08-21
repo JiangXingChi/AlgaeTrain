@@ -5,6 +5,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 
 // 现代简约配色 — 白底 + 墨绿主色 + 中性灰
 private val LightScheme = lightColorScheme(
@@ -46,6 +48,9 @@ object ThemeState {
     enum class Mode { Auto, Light, Dark }
     var mode by mutableStateOf(Mode.Auto)
         private set
+    // 全局字体缩放（1.0 = 标准；作用于所有 sp 字号）
+    var fontScale by mutableStateOf(1f)
+        private set
     private lateinit var prefs: android.content.SharedPreferences
 
     fun init(ctx: Context) {
@@ -55,6 +60,7 @@ object ThemeState {
             "dark"  -> Mode.Dark
             else   -> Mode.Auto
         }
+        fontScale = prefs.getFloat("font_scale", 1f)
     }
 
     fun apply(m: Mode) {
@@ -65,6 +71,11 @@ object ThemeState {
             Mode.Dark  -> "dark"
         }).apply()
     }
+
+    fun applyFontScale(s: Float) {
+        fontScale = s
+        prefs.edit().putFloat("font_scale", s).apply()
+    }
 }
 
 @Composable
@@ -74,8 +85,14 @@ fun AlgaeTheme(content: @Composable () -> Unit) {
         ThemeState.Mode.Light -> false
         ThemeState.Mode.Dark -> true
     }
-    MaterialTheme(
-        colorScheme = if (dark) DarkScheme else LightScheme,
-        content = content,
-    )
+    // 全局字体缩放：重写 LocalDensity.fontScale，所有 sp 字号随之缩放
+    val density = LocalDensity.current
+    CompositionLocalProvider(
+        LocalDensity provides Density(density.density, ThemeState.fontScale)
+    ) {
+        MaterialTheme(
+            colorScheme = if (dark) DarkScheme else LightScheme,
+            content = content,
+        )
+    }
 }
