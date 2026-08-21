@@ -47,7 +47,8 @@ fun BookShelfScreen(vm: TrainViewModel, canClose: Boolean, onClose: () -> Unit) 
             Text("选择一本图谱书开始学习，随时可以切换另一本（两本进度独立保存）",
                 Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                 fontSize = 13.sp, color = cs.outline)
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp),
+            LazyColumn(Modifier.fillMaxSize().navigationBarsPadding(),
+                contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 item {
                     BookCard(vm, "algae", "🌿", "浮游植物图谱", vm.allAlgaeItems, onClose)

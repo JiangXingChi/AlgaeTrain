@@ -200,6 +200,7 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         val r = loadQueue("queue_review_ids"); val n = loadQueue("queue_new_ids")
         if (r == null || n == null) { rebuildDailyQueue(); return }
         reviewQueue = r; newQueue = n
+        queueDate = prefs().getLong("queue_date", today()) // 恢复字段，防 saveQueue 写坏 queue_date
         newTotal = prefs().getInt("queue_new_total", 0)
         newDone = prefs().getInt("queue_new_done", 0)
         reviewTotal = prefs().getInt("queue_review_total", 0)
@@ -233,6 +234,7 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         allItems.forEach { dueMap[it.id] = prefsFor(mode).getLong("d_${it.id}", 0L) }
         val remaining = allItems.filter { dueMap[it.id] == 0L }.shuffled().take(dailyQuota)
         if (remaining.isEmpty()) return 0
+        history.clear() // 加练是新一组，旧撤销记录会污染加练队列
         newQueue = remaining
         queueDate = today()
         newTotal += remaining.size
@@ -252,7 +254,7 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         if (known) {
             // 认识：等级 +1（封顶 5），按间隔表排下次复习，卡出组
             e.putInt("s_${item.id}", (lv + 1).coerceAtMost(5))
-            e.putLong("d_${item.id}", today() + INTERVAL_DAYS[lv.coerceAtMost(5)])
+            e.putLong("d_${item.id}", today() + INTERVAL_DAYS[lv.coerceIn(0, 5)]) // coerceIn 防 prefs 损坏越界
             if (inReview) reviewQueue = reviewQueue.drop(1) else newQueue = newQueue.drop(1)
         } else {
             // 不认识：等级归 0，明天再排，卡回本组队尾当天重练（认完为止）
@@ -310,6 +312,7 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     // ── 过滤器（预留未用：UI 未调用，按门类筛选整本书）──
     fun selectPhylum(p: String?) {
         phylumFilter = p
+        history.clear() // 队列已重建，旧撤销记录会破坏新队列
         initQueue()
     }
 
@@ -319,6 +322,7 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         if (v == dailyQuota) return
         dailyQuota = v
         appPrefs.edit().putInt("daily_quota", v).apply()
+        history.clear() // 队列已重建，旧撤销记录会破坏新队列
         rebuildDailyQueue(); nextCard()
     }
 
@@ -326,6 +330,7 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         if (r == reviewRatio) return
         reviewRatio = r
         appPrefs.edit().putInt("review_ratio", r).apply()
+        history.clear() // 队列已重建，旧撤销记录会破坏新队列
         rebuildDailyQueue(); nextCard()
     }
 
@@ -364,5 +369,8 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // ── Stats ──
-    private fun updateStats() { knownCount = allItems.count { isKnown(it.id) } }
+    // 一次读取全部 prefs 统计已掌握数（避免逐卡多次 getBoolean）
+    private fun updateStats() {
+        knownCount = prefs().all.count { (k, v) -> k.startsWith("k_") && v == true }
+    }
 }

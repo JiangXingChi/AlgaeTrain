@@ -53,8 +53,8 @@ fun MainScreen(vm: TrainViewModel) {
     val cs = MaterialTheme.colorScheme
 
     Box(Modifier.fillMaxSize()) {
-        // 图谱书架打开时拦截系统返回键
-        if (showShelf) BackHandler(enabled = true) { showShelf = false }
+        // 图谱书架打开时拦截系统返回键（未选书首次启动时强制选书，返回键不可跳过）
+        if (showShelf) BackHandler(enabled = vm.bookSelected) { showShelf = false }
 
         Scaffold(
             topBar = {
@@ -461,9 +461,10 @@ private fun FlashcardView(vm: TrainViewModel, item: AlgaeItem) {
             colors = CardDefaults.cardColors(containerColor = cs.surface)) {
             Box(Modifier.fillMaxSize()) {
                 if (!vm.flipped) {
-                    var zoomScale by remember { mutableFloatStateOf(1f) }
-                    var offsetX by remember { mutableFloatStateOf(0f) }
-                    var offsetY by remember { mutableFloatStateOf(0f) }
+                    // key=item.id：切换卡片时缩放/平移状态必须重置
+                    var zoomScale by remember(item.id) { mutableFloatStateOf(1f) }
+                    var offsetX by remember(item.id) { mutableFloatStateOf(0f) }
+                    var offsetY by remember(item.id) { mutableFloatStateOf(0f) }
                     Box(Modifier.fillMaxSize().clipToBounds()) {
                         AsyncImage(
                             model = ImageRequest.Builder(LocalContext.current)
