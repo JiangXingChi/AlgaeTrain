@@ -224,7 +224,7 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("🗓 打卡月历", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cs.onSurface)
                     Spacer(Modifier.weight(1f))
-                    Text("连续 ${vm.streakDays()} 天 🔥", fontSize = 12.sp, color = cs.onSurfaceVariant)
+                    Text("连续 ${vm.streakDays()} 天 🔥 · 累计 ${vm.checkedInDays().size} 天", fontSize = 12.sp, color = cs.onSurfaceVariant)
                     Spacer(Modifier.width(8.dp))
                     if (vm.isCheckedIn()) Surface(shape = RoundedCornerShape(8.dp), color = Color(0xFFC8E6C9)) {
                         Text("✓ 已打卡", Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
