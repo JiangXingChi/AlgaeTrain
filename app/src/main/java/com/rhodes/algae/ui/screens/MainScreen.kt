@@ -42,7 +42,7 @@ import com.rhodes.algae.viewmodel.TrainViewModel
 import java.time.LocalDate
 import java.time.YearMonth
 
-private const val VERSION = "V0.5.0"
+private const val VERSION = "V0.6.0"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -125,11 +125,49 @@ private fun TrainTab(vm: TrainViewModel) {
 
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Spacer(Modifier.height(8.dp))
+        TodayTaskProgress(vm)
+        Spacer(Modifier.height(8.dp))
         Box(Modifier.weight(1f)) {
             val item = vm.currentItem
             if (item != null) FlashcardView(vm, item)
             else CompleteView(vm)
         }
+    }
+}
+
+// 训练页顶部：今日任务进度（先复习后新卡，两组各自进度 + 当前组 + 剩余张数）
+@Composable
+private fun TodayTaskProgress(vm: TrainViewModel) {
+    val cs = MaterialTheme.colorScheme
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+        .background(cs.surfaceVariant).padding(horizontal = 14.dp, vertical = 10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("📚 今日复习", fontSize = 12.sp, color = cs.outline)
+            Spacer(Modifier.weight(1f))
+            Text("${vm.reviewDone}/${vm.reviewTotal}", fontSize = 12.sp,
+                fontWeight = FontWeight.Bold, color = cs.onSurface)
+        }
+        Spacer(Modifier.height(4.dp))
+        LinearProgressIndicator(
+            progress = { if (vm.reviewTotal == 0) 0f else vm.reviewDone.toFloat() / vm.reviewTotal },
+            Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)),
+            color = cs.secondary, trackColor = cs.surface)
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("🌱 今日新卡", fontSize = 12.sp, color = cs.outline)
+            Spacer(Modifier.weight(1f))
+            Text("${vm.newDone}/${vm.newTotal}", fontSize = 12.sp,
+                fontWeight = FontWeight.Bold, color = cs.onSurface)
+        }
+        Spacer(Modifier.height(4.dp))
+        LinearProgressIndicator(
+            progress = { if (vm.newTotal == 0) 0f else vm.newDone.toFloat() / vm.newTotal },
+            Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)),
+            color = cs.primary, trackColor = cs.surface)
+        Spacer(Modifier.height(6.dp))
+        // 当前组 + 剩余张数，让循环重练看得到边界
+        Text(vm.currentGroupLabel?.let { "$it · 剩余 ${vm.queueRemaining} 张" } ?: "今日任务完成",
+            fontSize = 11.sp, color = cs.outline)
     }
 }
 

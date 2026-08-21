@@ -29,7 +29,7 @@ cd /home/teacat/Agent/Temp/App开发/识浮游
 ```
 MainActivity                 ← 入口，AlgaeTheme + TrainViewModel
   └─ MainScreen              ← Scaffold + 3 标签页 + 1 个全屏 overlay
-       ├─ TrainTab           ← 训练页：闪卡（图谱书卡片在打卡页）
+       ├─ TrainTab           ← 训练页：顶部今日任务进度（复习/新卡两组）+ 闪卡
        ├─ CheckInTab         ← 打卡页：图谱书卡片(总进度/换书) + 今日任务双进度条 + 月历 + 设置（配额10/20+自定义/比例/重置）
        ├─ AboutTab           ← 关于：玩法说明 + 版本信息 + 版权
        └─ BookShelfScreen    ← 图谱书架 overlay（像选词书一样换书）
@@ -46,8 +46,8 @@ assets/zooplankton/*.jpg     ← 浮游动物图片
 TrainViewModel               ← 状态管理器（唯一 ViewModel）
   ├── loadData()             ← 从 assets 加载两本图谱（含旧数据迁移）
   ├── parseItems(json, mode) ← 解析 + 旧版 known 迁移，mode 决定 prefs 归属
-  ├── rebuildDailyQueue()    ← 每日调度：到期复习（先）+ 新卡配额（后）
-  ├── mark(known)            ← 2 档评价，更新 SRS 等级/日期 + 打卡判定
+  ├── rebuildDailyQueue()    ← 每日调度：今日复习组（到期卡 配额×比例，先）+ 今日新卡组（未学卡 配额，后）
+  ├── mark(known)            ← 2 档评价，更新 SRS 等级/日期；认识才出组并计进度，不认识回本组队尾重练
   ├── addMoreCards()         ← 学完后加练：剩余新卡再取一组（不影响打卡，0=学完）
   ├── undo()                 ← 撤销上一步（同时回滚 SRS 状态）
   ├── restartBook(mode)      ← 重置指定图谱的进度（日历打卡保留）
@@ -80,14 +80,15 @@ TrainViewModel               ← 状态管理器（唯一 ViewModel）
 - **回答 2 档**：
   - 认识：等级 +1（封顶 5 级），按间隔表排下次复习
   - 不认识：等级归 0，`d_` = 明天，卡回今日队列尾部当日重练
-- 每日队列 = 到期复习卡（`d_` ≤ 今天，按到期先后）+ 新卡（`d_` == 0，配额内先复习后新学）
-- 队列日期 `queue_date`：当天已建队列则断点续练（跨天自动重建）
+- 每日队列分两组：**今日复习组** = 到期卡（`d_` ≤ 今天，按到期先后，取 配额×比例 张）+ **今日新卡组** = 未学卡（`d_` == 0，取 配额 张）；训练先复习组后新卡组
+- 组内「不认识」回本组队尾当天重练（认完为止），只有「认识」才出组并计入进度；两组全部认完才完成
+- 队列日期 `queue_date`：当天已建队列则断点续练（跨天自动重建）；持久化 key 为 `queue_review_ids` / `queue_new_ids`（V0.6.0 起，旧版单队列数据无法区分组别会重建）
 
 ### 每日打卡（V0.4.0 引入）
 
 - 设置存 `app_settings`：`daily_quota`（默认 20，快捷档 10/20 + **自定义 1-100** 输入）、`review_ratio`（1:1/1:2/1:3，默认 1:2）
 - 复习上限 = 配额 × 比例，超出的到期卡顺延明天
-- **打卡条件**：今日新卡配额完成即打卡（复习卡不阻塞）
+- **打卡条件**：今日新卡组全部「认识」即打卡（复习卡不阻塞；不认识不计入完成）
 - 打卡记录：`app_settings.checkin_dates`（JSONArray<epochDay>），连续天数从今天/昨天往回数
 - 漏签不补卡；打卡页面在**独立 tab**（今日任务双进度条 + 打卡月历 + 每日新卡量 / 复习比例设置 + 三个独立重置：植物/动物/打卡），不占训练页空间
 
@@ -101,7 +102,7 @@ Material3 + lightColorScheme：
 SharedPreferences（不用 Room/DataStore）：
 - `k_<id>` — 已掌握标记（V0.3.1 遗留，兼容保留）
 - `s_<id>` / `d_<id>` — SRS 等级 / 下次复习日
-- `queue_ids` + `queue_date` + `queue_*_total/done` — 今日队列与进度
+- `queue_review_ids` / `queue_new_ids` + `queue_date` + `queue_*_total/done` — 今日两组队列与进度
 - `app_settings` — 当前书、打卡设置、打卡日期（全局，不分书）
 
 ---
