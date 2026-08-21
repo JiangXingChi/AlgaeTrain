@@ -217,43 +217,19 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
             }
         }
 
-        // 今日任务
+        // 打卡月历（标题行含连续天数 + 已打卡状态；今日任务进度在训练页显示）
         item {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
                 .background(cs.surfaceVariant).padding(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("📅 今日任务", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cs.onSurface)
-                        Spacer(Modifier.height(2.dp))
-                        Text("新卡 ${vm.newDone}/${vm.newTotal} · 复习 ${vm.reviewDone}/${vm.reviewTotal} · 连续 ${vm.streakDays()} 天 🔥",
-                            fontSize = 12.sp, color = cs.onSurfaceVariant)
-                    }
+                    Text("🗓 打卡月历", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cs.onSurface)
+                    Spacer(Modifier.weight(1f))
+                    Text("连续 ${vm.streakDays()} 天 🔥", fontSize = 12.sp, color = cs.onSurfaceVariant)
+                    Spacer(Modifier.width(8.dp))
                     if (vm.isCheckedIn()) Surface(shape = RoundedCornerShape(8.dp), color = Color(0xFFC8E6C9)) {
                         Text("✓ 已打卡", Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
                             fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)) }
                 }
-                Spacer(Modifier.height(10.dp))
-                Text("新卡", fontSize = 11.sp, color = cs.outline)
-                Spacer(Modifier.height(3.dp))
-                LinearProgressIndicator(
-                    progress = { if (vm.newTotal == 0) 0f else vm.newDone.toFloat() / vm.newTotal },
-                    Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
-                    color = cs.primary, trackColor = cs.surface)
-                Spacer(Modifier.height(8.dp))
-                Text("复习", fontSize = 11.sp, color = cs.outline)
-                Spacer(Modifier.height(3.dp))
-                LinearProgressIndicator(
-                    progress = { if (vm.reviewTotal == 0) 0f else vm.reviewDone.toFloat() / vm.reviewTotal },
-                    Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
-                    color = cs.secondary, trackColor = cs.surface)
-            }
-        }
-
-        // 打卡月历
-        item {
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-                .background(cs.surfaceVariant).padding(12.dp)) {
-                Text("🗓 打卡月历", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cs.onSurface)
                 Spacer(Modifier.height(8.dp))
                 MonthCalendar(vm)
             }
