@@ -122,7 +122,8 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         newQueue.isNotEmpty() -> "今日新卡"
         // 每日配额完成后队列里剩下的都是加练组
         extraReviewQueue.isNotEmpty() -> "加练复习"
-        else -> "加练新卡"
+        extraNewQueue.isNotEmpty() -> "加练新卡"
+        else -> null
     }
 
     // ── 打卡 ──
