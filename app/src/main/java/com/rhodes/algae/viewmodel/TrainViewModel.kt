@@ -340,7 +340,6 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         appendExtra({ dueMap -> allItems.filter { dueMap[it.id] == 0L }.shuffled().take(dailyQuota) }) { remaining ->
             newQueue = remaining
             extraNewTotal += remaining.size
-            extraIds = extraIds + remaining.map { it.id }.toSet()
         }
 
     // 再复习一组：从今日未进入复习组的到期卡中取（0 = 没有更多到期的了）
