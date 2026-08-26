@@ -102,10 +102,6 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun doneOf(group: Int) = when (group) {
-        0 -> reviewDone; 1 -> newDone; 2 -> extraReviewDone; else -> extraNewDone
-    }
-
     private fun bumpDone(group: Int, delta: Int) {
         when (group) {
             0 -> reviewDone += delta
@@ -123,8 +119,8 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     val queueRemaining get() = reviewQueue.size + newQueue.size + extraReviewQueue.size + extraNewQueue.size
     val currentGroupLabel: String? get() = when {
         reviewQueue.isNotEmpty() -> "今日复习"
-        // 每日配额完成后队列里剩下的都是加练卡
-        newQueue.isNotEmpty() -> if (newDone >= newTotal) "加练新卡" else "今日新卡"
+        newQueue.isNotEmpty() -> "今日新卡"
+        // 每日配额完成后队列里剩下的都是加练组
         extraReviewQueue.isNotEmpty() -> "加练复习"
         else -> "加练新卡"
     }
@@ -321,7 +317,8 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     private fun appendExtra(take: (HashMap<String, Long>) -> List<AlgaeItem>,
                             onAppend: (List<AlgaeItem>) -> Unit): Int {
         ensureToday() // 过夜后先滚到今天，避免以昨日状态为基底加练
-        if (currentItem != null || reviewQueue.isNotEmpty() || newQueue.isNotEmpty()) return 0
+        if (currentItem != null || reviewQueue.isNotEmpty() || newQueue.isNotEmpty() ||
+            extraReviewQueue.isNotEmpty() || extraNewQueue.isNotEmpty()) return 0
         val mode = currentMode
         val dueMap = HashMap<String, Long>(allItems.size)
         allItems.forEach { dueMap[it.id] = prefsFor(mode).getLong("d_${it.id}", 0L) }
@@ -338,15 +335,17 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     // 再学一组：从未排期的新卡中取（0 = 图谱已全部学完）
     fun addMoreCards(): Int =
         appendExtra({ dueMap -> allItems.filter { dueMap[it.id] == 0L }.shuffled().take(dailyQuota) }) { remaining ->
-            newQueue = remaining
+            extraNewQueue = remaining // 与加练复习对称：独立队列，不混入每日新卡组
             extraNewTotal += remaining.size
         }
 
-    // 再复习一组：从今日未进入复习组的到期卡中取（0 = 没有更多到期的了）
+    // 再复习一组：从今日未进入复习组的到期卡中取（0 = 没有更多到期的了）。
+    // 按到期先后排序（与每日复习组一致），不随机打乱
     fun addMoreReview(): Int =
         appendExtra({ dueMap ->
             allItems.filter { val d = dueMap[it.id] ?: 0L; d != 0L && d <= today() }
-                .shuffled().take(dailyQuota * reviewRatio)
+                .sortedBy { dueMap[it.id] }
+                .take(dailyQuota * reviewRatio)
         }) { remaining ->
             extraReviewQueue = remaining
             extraReviewTotal += remaining.size

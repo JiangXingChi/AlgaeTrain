@@ -468,10 +468,15 @@ private fun CompleteView(vm: TrainViewModel) {
         Spacer(Modifier.height(4.dp))
         Text("已掌握 ${vm.knownCount}/${vm.allItems.size} · 连续打卡 ${vm.streakDays()} 天",
             color = cs.outline)
-        // 加练统计：与每日任务分开显示
+        // 加练统计：与每日任务分开显示（复习/新卡两类）
+        if (vm.extraReviewTotal > 0) {
+            Spacer(Modifier.height(4.dp))
+            Text("加练复习 ${vm.extraReviewDone}/${vm.extraReviewTotal} 张",
+                fontSize = 12.sp, color = cs.outline)
+        }
         if (vm.extraNewTotal > 0) {
             Spacer(Modifier.height(4.dp))
-            Text("今日加练 ${vm.extraNewDone}/${vm.extraNewTotal} 张（不计入每日任务）",
+            Text("加练新卡 ${vm.extraNewDone}/${vm.extraNewTotal} 张（不计入每日任务）",
                 fontSize = 12.sp, color = cs.outline)
         }
         Spacer(Modifier.height(8.dp))
