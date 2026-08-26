@@ -211,7 +211,8 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
                         Text("📚 我的图谱书", fontSize = 13.sp, color = cs.outline)
                         Spacer(Modifier.height(2.dp))
                         Text(vm.bookTitle, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cs.onSurface)
-                        Text("${vm.currentPhylumCount} 门 · ${vm.allItems.size} 图 · 点击卡片可切换图谱书",
+                        Text(if (vm.allItems.isEmpty()) "加载中…"
+                            else "${vm.currentPhylumCount} 门 · ${vm.allItems.size} 图 · 点击卡片可切换图谱书",
                             fontSize = 12.sp, color = cs.outline)
                         Spacer(Modifier.height(8.dp))
                         LinearProgressIndicator(

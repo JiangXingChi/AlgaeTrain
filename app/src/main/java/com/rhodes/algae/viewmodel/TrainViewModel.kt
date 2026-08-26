@@ -116,6 +116,11 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
                 phylumCountZoo = allZooItems.map { it.phylum }.distinct().size
             } catch (_: Exception) { Log.w("识浮游", "zooplankton_data.json missing") }
             initQueue()
+            // 清理 90 天前的按书达标记账（防无限增长）
+            val cutoff = today() - 90
+            appPrefs.all.keys.filter {
+                it.startsWith("checkin_books_") && (it.removePrefix("checkin_books_").toLongOrNull() ?: 0L) < cutoff
+            }.forEach { appPrefs.edit().remove(it).apply() }
         } catch (e: Exception) { Log.e("识浮游", "Load failed", e) }
         finally { isLoading = false }
     }
@@ -339,9 +344,12 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         if (mode == currentMode) initQueue()
     }
 
-    // 重置打卡记录：清空打卡日期与连续天数（学习进度保留）
+    // 重置打卡记录：清空打卡日期、连续天数与按书达标记录（学习进度保留）
     fun restartCheckIn() {
-        appPrefs.edit().remove("checkin_dates").apply()
+        val e = appPrefs.edit()
+        e.remove("checkin_dates")
+        appPrefs.all.keys.filter { it.startsWith("checkin_books_") }.forEach { e.remove(it) }
+        e.apply()
         checkinCache = emptyList()
         checkinVersion++
     }
@@ -406,17 +414,36 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
             newTotal > 0 && newDone >= newTotal
         else reviewTotal > 0 && reviewDone >= reviewTotal
 
+    // 当日各书达标记录：打卡日期全局共享，但只有当所有书的达标都回落后才回收当天记录，
+    // 避免跨书操作（学完植物书打卡后切到动物书）误删已达成的打卡日
+    private fun doneBooksKey(day: Long) = "checkin_books_$day"
+    private fun doneBooks(day: Long): MutableSet<String> =
+        appPrefs.getStringSet(doneBooksKey(day), emptySet())?.toMutableSet() ?: mutableSetOf()
+
     private fun syncCheckIn() {
         val t = today()
+        val books = doneBooks(t)
         val earned = todayCheckInEarned()
-        if (earned && !isCheckedIn(t)) {
-            addCheckIn(t)
-        } else if (!earned && isCheckedIn(t)) {
-            // 仅回收当天的自动打卡；撤销导致进度回落时保持「已打卡 ⟺ 已达标」一致
-            val list = checkedInDays().filterNot { it == t }
-            appPrefs.edit().putString("checkin_dates", JSONArray(list).toString()).apply()
-            checkinCache = list
-            checkinVersion++
+        if (earned) {
+            if (currentMode !in books) {
+                books.add(currentMode)
+                appPrefs.edit().putStringSet(doneBooksKey(t), books).apply()
+            }
+            if (!isCheckedIn(t)) addCheckIn(t)
+        } else if (currentMode in books) {
+            // 仅当前书达标回落：先移出记账集合；集合空了才真正回收当天打卡
+            books.remove(currentMode)
+            if (books.isEmpty()) {
+                appPrefs.edit().remove(doneBooksKey(t)).apply()
+                if (isCheckedIn(t)) {
+                    val list = checkedInDays().filterNot { it == t }
+                    appPrefs.edit().putString("checkin_dates", JSONArray(list).toString()).apply()
+                    checkinCache = list
+                    checkinVersion++
+                }
+            } else {
+                appPrefs.edit().putStringSet(doneBooksKey(t), books).apply()
+            }
         }
     }
 
