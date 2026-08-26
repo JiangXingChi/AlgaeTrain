@@ -116,6 +116,23 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
                 phylumCountZoo = allZooItems.map { it.phylum }.distinct().size
             } catch (_: Exception) { Log.w("识浮游", "zooplankton_data.json missing") }
             initQueue()
+            // 空档日兜底：学完且当日既无新卡也无到期复习的书，打开 App 即视为达标。
+            // 否则「零操作日」（没卡可练自然不会触发 mark）会误断连续打卡
+            val t0 = today()
+            for ((mode, items) in listOf("algae" to allAlgaeItems, "zooplankton" to allZooItems)) {
+                if (items.isEmpty()) continue
+                val p = prefsFor(mode)
+                val hasNew = items.any { p.getLong("d_${it.id}", 0L) == 0L }
+                val hasDue = items.any { val d = p.getLong("d_${it.id}", 0L); d != 0L && d <= t0 }
+                if (!hasNew && !hasDue) {
+                    val done = bookSet("checkin_done", t0)
+                    if (mode !in done) {
+                        done.add(mode)
+                        appPrefs.edit().putStringSet(dayKey("checkin_done", t0), done).apply()
+                    }
+                }
+            }
+            if (!isCheckedIn(t0) && bookSet("checkin_done", t0).isNotEmpty()) addCheckIn(t0)
             // 清理 90 天前的按书记账（防无限增长）
             val cutoff = today() - 90
             appPrefs.all.keys.filter { key ->
