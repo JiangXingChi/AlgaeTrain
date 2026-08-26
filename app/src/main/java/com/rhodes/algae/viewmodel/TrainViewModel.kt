@@ -417,13 +417,16 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         checkinVersion++
     }
 
-    // 当日打卡条件（派生值）：有未学新卡 → 新卡配额完成；图谱已学完 → 完成当日全部复习，
-    // 若当天没有到期的复习卡（卡片错峰排期会出现），有任意有效判定也算达标
+    // 当日打卡条件（派生值）：有未学新卡 → 新卡配额完成；有到期复习 → 全部完成；
+    // 既无新卡也无到期复习（学完后卡片错峰排期的空档日）→ 当天无可训练内容，不断签。
+    // 注意 syncCheckIn 仅由 mark/undo 触发：空档日仍需当天有真实训练动作（如练另一本书）才落账
     private fun todayCheckInEarned(): Boolean {
         val hasNew = allItems.any { dueDayFor(currentMode, it.id) == 0L }
-        return if (hasNew) newTotal > 0 && newDone >= newTotal
-        else if (reviewTotal > 0) reviewDone >= reviewTotal
-        else reviewDone > 0 || extraNewDone > 0
+        return when {
+            hasNew -> newTotal > 0 && newDone >= newTotal
+            reviewTotal > 0 -> reviewDone >= reviewTotal
+            else -> true
+        }
     }
 
     // 当日按书记账：
