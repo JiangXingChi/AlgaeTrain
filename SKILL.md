@@ -48,7 +48,8 @@ TrainViewModel               ← 状态管理器（唯一 ViewModel）
   ├── parseItems(json, mode) ← 解析 + 旧版 known 迁移，mode 决定 prefs 归属
   ├── rebuildDailyQueue()    ← 每日调度：今日复习组（到期卡 配额×比例，先）+ 今日新卡组（未学卡 配额，后）
   ├── mark(known)            ← 2 档评价，更新 SRS 等级/日期；认识才出组并计进度，不认识回本组队尾重练
-  ├── addMoreCards()         ← 学完后加练：剩余新卡再取一组（不影响打卡，0=学完；独立计数 extraNew*，不占每日配额）
+  ├── addMoreCards()         ← 学完后加练新卡：剩余未排期卡再取一组（不影响打卡，0=学完；独立计数 extraNew*）
+  ├── addMoreReview()        ← 学完后加练复习：当日顺延到期卡再取一组（独立计数 extraReview*，按到期排序）
   ├── undo()                 ← 撤销上一步（同时回滚 SRS 状态）
   ├── restartBook(mode)      ← 重置指定图谱的进度（日历打卡保留）
   ├── restartCheckIn()       ← 重置打卡记录/连续天数（学习进度保留）
@@ -103,7 +104,7 @@ SharedPreferences（不用 Room/DataStore）：
 - `k_<id>` — 已掌握标记（V0.3.1 遗留，兼容保留）
 - `s_<id>` / `d_<id>` — SRS 等级 / 下次复习日
 - `queue_review_ids` / `queue_new_ids` + `queue_date` + `queue_*_total/done` — 今日两组队列与进度
-- `queue_extra_total/done` / `queue_extra_ids` — 加练（再学一组）独立计数，不占每日新卡配额
+- `queue_extra_total/done` + `queue_extra_new/review_ids` + `queue_extra_rv_total/done` — 加练两组（再学一组=新卡 / 再复习一组=顺延到期卡）独立队列与计数，不占每日配额
 - `app_settings` — 当前书、打卡设置、打卡日期（全局，不分书）
 
 ---
