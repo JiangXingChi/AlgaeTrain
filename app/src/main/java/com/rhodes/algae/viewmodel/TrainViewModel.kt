@@ -294,11 +294,12 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         updateStats()
-        checkCheckIn()
+        syncCheckIn()
         saveQueue(); nextCard()
     }
 
     fun undo() {
+        ensureToday() // 跨天后队列已重建、历史已清空，此处自然短路
         if (history.isEmpty()) return
         val s = history.removeLast()
         prefs().edit()
@@ -323,6 +324,7 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         updateStats()
+        syncCheckIn()
         saveQueue()
     }
 
@@ -393,12 +395,25 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         checkinVersion++
     }
 
-    // 今日新卡配额完成即打卡（复习卡不阻塞）；图谱全部学完后，完成当日复习同样算打卡
-    private fun checkCheckIn() {
+    // 当日打卡条件（派生值）：有未学新卡 → 新卡配额完成；图谱学完 → 完成当日复习。
+    // 计数任何变化（mark/undo/重建）后都向该派生值对齐：达标即打卡，回落即回收当天记录
+    private fun todayCheckInEarned(): Boolean =
+        if (allItems.any { dueDayFor(currentMode, it.id) == 0L })
+            newTotal > 0 && newDone >= newTotal
+        else reviewTotal > 0 && reviewDone >= reviewTotal
+
+    private fun syncCheckIn() {
         val t = today()
-        val done = if (allItems.any { dueDayFor(currentMode, it.id) == 0L }) newDone >= newTotal && newTotal > 0
-                   else reviewTotal > 0 && reviewDone >= reviewTotal
-        if (done && !isCheckedIn(t)) addCheckIn(t)
+        val earned = todayCheckInEarned()
+        if (earned && !isCheckedIn(t)) {
+            addCheckIn(t)
+        } else if (!earned && isCheckedIn(t)) {
+            // 仅回收当天的自动打卡；撤销导致进度回落时保持「已打卡 ⟺ 已达标」一致
+            val list = checkedInDays().filterNot { it == t }
+            appPrefs.edit().putString("checkin_dates", JSONArray(list).toString()).apply()
+            checkinCache = list
+            checkinVersion++
+        }
     }
 
     // ── Stats ──

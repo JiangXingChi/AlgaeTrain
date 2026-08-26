@@ -239,9 +239,12 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("🗓 打卡月历", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cs.onSurface)
                     Spacer(Modifier.weight(1f))
-                    Text(if (vm.streakDays() >= 2) "连续 ${vm.streakDays()} 天 🔥 · 累计 ${vm.checkedInDays().size} 天"
-                        else "连续 ${vm.streakDays()} 天 · 累计 ${vm.checkedInDays().size} 天",
-                        fontSize = 12.sp, color = cs.onSurfaceVariant)
+                    // key=checkinVersion：撤销回收/重置打卡后，连续与累计数字即时刷新
+                    key(vm.checkinVersion) {
+                        Text(if (vm.streakDays() >= 2) "连续 ${vm.streakDays()} 天 🔥 · 累计 ${vm.checkedInDays().size} 天"
+                            else "连续 ${vm.streakDays()} 天 · 累计 ${vm.checkedInDays().size} 天",
+                            fontSize = 12.sp, color = cs.onSurfaceVariant)
+                    }
                     Spacer(Modifier.width(8.dp))
                     if (vm.isCheckedIn()) Surface(shape = RoundedCornerShape(12.dp), color = Color(0xFFC8E6C9)) {
                         Text("✓ 已打卡", Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
