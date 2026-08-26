@@ -440,8 +440,8 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // 当日打卡条件（派生值）：有未学新卡 → 新卡配额完成；有到期复习 → 全部完成；
-    // 既无新卡也无到期复习（学完后卡片错峰排期的空档日）→ 当天无可训练内容，不断签。
-    // 注意 syncCheckIn 仅由 mark/undo 触发：空档日仍需当天有真实训练动作（如练另一本书）才落账
+    // 既无新卡也无到期复习（学完后卡片错峰排期的空档日）→ 视为达标，由 sealIdleBooks
+    // 在队列初始化时自动记账，保证零操作日不断签。
     private fun todayCheckInEarned(): Boolean {
         val hasNew = allItems.any { dueDayFor(currentMode, it.id) == 0L }
         return when {
