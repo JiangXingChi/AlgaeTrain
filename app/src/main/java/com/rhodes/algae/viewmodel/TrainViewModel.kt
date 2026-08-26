@@ -116,7 +116,6 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
                 phylumCountZoo = allZooItems.map { it.phylum }.distinct().size
             } catch (_: Exception) { Log.w("识浮游", "zooplankton_data.json missing") }
             initQueue()
-            sealIdleBooks() // 空档日兜底：学完且当日无可练内容的书，打开 App 即视为达标
             // 清理 90 天前的按书记账（防无限增长）
             val cutoff = today() - 90
             appPrefs.all.keys.filter { key ->
@@ -173,6 +172,7 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         }
         updateStats()
         nextCard()
+        sealIdleBooks() // 空档日兜底：loadData / 切书 / 重置进度三条路统一覆盖
     }
 
     // ── 跨天守卫：App 常驻内存过夜后，任何训练操作先把队列滚到今天 ──
