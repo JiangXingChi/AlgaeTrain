@@ -246,9 +246,12 @@ private fun CheckInTab(vm: TrainViewModel, onOpenShelf: () -> Unit) {
                             fontSize = 12.sp, color = cs.onSurfaceVariant)
                     }
                     Spacer(Modifier.width(8.dp))
-                    if (vm.isCheckedIn()) Surface(shape = RoundedCornerShape(12.dp), color = Color(0xFFC8E6C9)) {
-                        Text("✓ 已打卡", Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
-                            fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)) }
+                    // key=checkinVersion：撤销回收/重置打卡后，「已打卡」即时消失
+                    key(vm.checkinVersion) {
+                        if (vm.isCheckedIn()) Surface(shape = RoundedCornerShape(12.dp), color = Color(0xFFC8E6C9)) {
+                            Text("✓ 已打卡", Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+                                fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)) }
+                    }
                 }
                 Spacer(Modifier.height(8.dp))
                 MonthCalendar(vm)

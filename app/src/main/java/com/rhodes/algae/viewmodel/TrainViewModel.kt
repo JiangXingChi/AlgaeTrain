@@ -103,7 +103,7 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── Load ──
     fun loadData() {
-        if (allAlgaeItems.isNotEmpty() && allZooItems.isNotEmpty()) return
+        if (allAlgaeItems.isNotEmpty()) return // 动物书缺失时不重复解析植物书
         isLoading = true
         try {
             // 恢复上次选择的图谱书（否则默认植物书）
@@ -170,7 +170,10 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── 跨天守卫：App 常驻内存过夜后，任何训练操作先把队列滚到今天 ──
     private fun ensureToday() {
-        if (queueDate != today()) rebuildDailyQueue()
+        if (queueDate != today()) {
+            rebuildDailyQueue()
+            nextCard() // 重建后必须刷新当前卡，否则 UI 停留在旧的完成态
+        }
     }
 
     // 重建今日队列：到期复习卡（按到期先后）+ 今日新卡（配额内），先复习后新学
@@ -247,6 +250,7 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     // 再学一组：今日任务学完后，从剩余新卡（未排期）再取一组加练
     // 不影响当日打卡记录；返回实际加入的张数（0 = 图谱已全部学完）
     fun addMoreCards(): Int {
+        ensureToday() // 过夜后先滚到今天，避免以昨日状态为基底加练
         if (currentItem != null || reviewQueue.isNotEmpty() || newQueue.isNotEmpty()) return 0
         val mode = currentMode
         val dueMap = HashMap<String, Long>(allItems.size)
