@@ -42,7 +42,7 @@ import com.rhodes.algae.viewmodel.TrainViewModel
 import java.time.LocalDate
 import java.time.YearMonth
 
-private const val VERSION = "V0.6.0"
+private const val VERSION = "V0.6.1"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -164,6 +164,21 @@ private fun TodayTaskProgress(vm: TrainViewModel) {
             progress = { if (vm.newTotal == 0) 0f else vm.newDone.toFloat() / vm.newTotal },
             Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(12.dp)),
             color = cs.primary, trackColor = cs.surface)
+        // 加练独立显示：不占每日新卡配额口径
+        if (vm.extraNewTotal > 0) {
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("⭐ 今日加练", fontSize = 12.sp, color = cs.outline)
+                Spacer(Modifier.weight(1f))
+                Text("${vm.extraNewDone}/${vm.extraNewTotal}", fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold, color = cs.onSurface)
+            }
+            Spacer(Modifier.height(4.dp))
+            LinearProgressIndicator(
+                progress = { if (vm.extraNewTotal == 0) 0f else vm.extraNewDone.toFloat() / vm.extraNewTotal },
+                Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(12.dp)),
+                color = cs.tertiary, trackColor = cs.surface)
+        }
         Spacer(Modifier.height(6.dp))
         // 当前组 + 剩余张数，让循环重练看得到边界
         Text(vm.currentGroupLabel?.let { "$it · 剩余 ${vm.queueRemaining} 张" } ?: "今日任务完成",
@@ -433,6 +448,12 @@ private fun CompleteView(vm: TrainViewModel) {
         Spacer(Modifier.height(4.dp))
         Text("已掌握 ${vm.knownCount}/${vm.allItems.size} · 连续打卡 ${vm.streakDays()} 天",
             color = cs.outline)
+        // 加练统计：与每日任务分开显示
+        if (vm.extraNewTotal > 0) {
+            Spacer(Modifier.height(4.dp))
+            Text("今日加练 ${vm.extraNewDone}/${vm.extraNewTotal} 张（不计入每日任务）",
+                fontSize = 12.sp, color = cs.outline)
+        }
         Spacer(Modifier.height(8.dp))
         if (vm.isCheckedIn()) Surface(shape = RoundedCornerShape(12.dp), color = Color(0xFFC8E6C9)) {
             Text("✓ 今日已打卡", Modifier.padding(horizontal = 12.dp, vertical = 4.dp),

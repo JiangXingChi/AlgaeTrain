@@ -65,7 +65,8 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     // ── Undo ──
     private data class Snap(val item: AlgaeItem, val wasKnown: Boolean,
                             val wasLevel: Int, val wasDue: Long,
-                            val marked: Boolean, val wasInReview: Boolean)
+                            val marked: Boolean, val wasInReview: Boolean,
+                            val wasExtra: Boolean)
     private val history = mutableListOf<Snap>()
     val canUndo get() = history.isNotEmpty()
 
@@ -78,6 +79,10 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     var newDone by mutableIntStateOf(0); private set
     var reviewTotal by mutableIntStateOf(0); private set
     var reviewDone by mutableIntStateOf(0); private set
+    // ── 加练（再学一组）独立计数：不污染每日新卡配额口径 ──
+    var extraNewTotal by mutableIntStateOf(0); private set
+    var extraNewDone by mutableIntStateOf(0); private set
+    private var extraIds = emptySet<String>()
 
     // ── Filters（预留未用）──
     var filter by mutableStateOf("all"); private set
@@ -87,7 +92,8 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     val queueRemaining get() = reviewQueue.size + newQueue.size
     val currentGroupLabel: String? get() = when {
         reviewQueue.isNotEmpty() -> "今日复习"
-        newQueue.isNotEmpty() -> "今日新卡"
+        // 每日配额完成后队列里剩下的都是加练卡
+        newQueue.isNotEmpty() -> if (newDone >= newTotal) "加练新卡" else "今日新卡"
         else -> null
     }
 
@@ -187,6 +193,7 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         queueDate = t
         newTotal = newQueue.size; newDone = 0
         reviewTotal = reviewQueue.size; reviewDone = 0
+        extraNewTotal = 0; extraNewDone = 0; extraIds = emptySet()
         saveQueue()
     }
 
@@ -205,6 +212,9 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         newDone = prefs().getInt("queue_new_done", 0)
         reviewTotal = prefs().getInt("queue_review_total", 0)
         reviewDone = prefs().getInt("queue_review_done", 0)
+        extraNewTotal = prefs().getInt("queue_extra_total", 0)
+        extraNewDone = prefs().getInt("queue_extra_done", 0)
+        extraIds = loadQueue("queue_extra_ids")?.map { it.id }?.toSet() ?: emptySet()
     }
 
     private fun saveQueue() {
@@ -216,6 +226,9 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
             .putInt("queue_new_done", newDone)
             .putInt("queue_review_total", reviewTotal)
             .putInt("queue_review_done", reviewDone)
+            .putInt("queue_extra_total", extraNewTotal)
+            .putInt("queue_extra_done", extraNewDone)
+            .putString("queue_extra_ids", JSONArray(extraIds.toList()).toString())
             .apply()
     }
 
@@ -237,7 +250,8 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         history.clear() // 加练是新一组，旧撤销记录会污染加练队列
         newQueue = remaining
         queueDate = today()
-        newTotal += remaining.size
+        extraNewTotal += remaining.size
+        extraIds = extraIds + remaining.map { it.id }.toSet()
         saveQueue()
         nextCard()
         return remaining.size
@@ -249,7 +263,8 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         val item = currentItem ?: return
         val lv = level(item.id)
         val inReview = reviewQueue.firstOrNull() == item // 当前卡属于今日复习组
-        history.add(Snap(item, isKnown(item.id), lv, dueDayFor(currentMode, item.id), known, inReview))
+        val isExtra = !inReview && item.id in extraIds   // 当前卡属于加练组
+        history.add(Snap(item, isKnown(item.id), lv, dueDayFor(currentMode, item.id), known, inReview, isExtra))
         val e = prefs().edit().putBoolean("k_${item.id}", known)
         if (known) {
             // 认识：等级 +1（封顶 5），按间隔表排下次复习，卡出组
@@ -263,8 +278,14 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
             if (inReview) reviewQueue = reviewQueue.drop(1) + item else newQueue = newQueue.drop(1) + item
         }
         e.apply()
-        // 只有「认识」才计入完成进度（不认识回队尾继续练）
-        if (known) { if (inReview) reviewDone++ else newDone++ }
+        // 只有「认识」才计入完成进度（不认识回队尾继续练）；加练计入加练计数
+        if (known) {
+            when {
+                inReview -> reviewDone++
+                isExtra -> extraNewDone++
+                else -> newDone++
+            }
+        }
         updateStats()
         checkCheckIn()
         saveQueue(); nextCard()
@@ -287,9 +308,12 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
             newQueue = listOf(s.item) + newQueue
         }
         currentItem = s.item; flipped = false
-        if (s.marked) { // 只有「认识」计过数，撤销时才回滚
-            if (s.wasInReview) reviewDone = (reviewDone - 1).coerceAtLeast(0)
-            else newDone = (newDone - 1).coerceAtLeast(0)
+        if (s.marked) { // 只有「认识」计过数，撤销时才回滚（按组别回滚对应计数）
+            when {
+                s.wasInReview -> reviewDone = (reviewDone - 1).coerceAtLeast(0)
+                s.wasExtra -> extraNewDone = (extraNewDone - 1).coerceAtLeast(0)
+                else -> newDone = (newDone - 1).coerceAtLeast(0)
+            }
         }
         updateStats()
         saveQueue()
