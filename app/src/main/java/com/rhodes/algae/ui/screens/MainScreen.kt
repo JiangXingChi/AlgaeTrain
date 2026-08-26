@@ -164,7 +164,21 @@ private fun TodayTaskProgress(vm: TrainViewModel) {
             progress = { if (vm.newTotal == 0) 0f else vm.newDone.toFloat() / vm.newTotal },
             Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(12.dp)),
             color = cs.primary, trackColor = cs.surface)
-        // 加练独立显示：不占每日新卡配额口径
+        // 加练独立显示：不占每日配额口径
+        if (vm.extraReviewTotal > 0) {
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("⭐ 加练复习", fontSize = 12.sp, color = cs.outline)
+                Spacer(Modifier.weight(1f))
+                Text("${vm.extraReviewDone}/${vm.extraReviewTotal}", fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold, color = cs.onSurface)
+            }
+            Spacer(Modifier.height(4.dp))
+            LinearProgressIndicator(
+                progress = { if (vm.extraReviewTotal == 0) 0f else vm.extraReviewDone.toFloat() / vm.extraReviewTotal },
+                Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(12.dp)),
+                color = cs.secondary, trackColor = cs.surface)
+        }
         if (vm.extraNewTotal > 0) {
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -447,7 +461,6 @@ private fun MonthCalendar(vm: TrainViewModel) {
 @Composable
 private fun CompleteView(vm: TrainViewModel) {
     val cs = MaterialTheme.colorScheme
-    var noMore by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center) {
         Text("🎉", fontSize = 48.sp)
@@ -466,15 +479,25 @@ private fun CompleteView(vm: TrainViewModel) {
             Text("✓ 今日已打卡", Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)) }
         Spacer(Modifier.height(20.dp))
-        // 主按钮：再学一组（从剩余新卡加练，不影响打卡）
-        Button(onClick = {
-            if (vm.addMoreCards() > 0) noMore = false
-            else noMore = true
-        }, enabled = !noMore,
-            colors = ButtonDefaults.buttonColors(containerColor = cs.primary),
-            shape = RoundedCornerShape(12.dp)) {
-            Text(if (noMore) "图谱已全部学完 🎉" else "再学一组",
-                Modifier.padding(horizontal = 16.dp, vertical = 4.dp), fontSize = 16.sp)
+        // 主按钮：再学一组（剩余新卡）/ 再复习一组（当日顺延的到期卡），均不影响打卡
+        var noMoreNew by remember { mutableStateOf(false) }
+        var noMoreReview by remember { mutableStateOf(false) }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { noMoreNew = vm.addMoreCards() == 0 }, enabled = !noMoreNew,
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = cs.primary),
+                shape = RoundedCornerShape(12.dp)) {
+                Text(if (noMoreNew) "新卡已学完 🎉" else "再学一组",
+                    Modifier.padding(vertical = 4.dp), fontSize = 15.sp)
+            }
+            Button(onClick = { noMoreReview = vm.addMoreReview() == 0 }, enabled = !noMoreReview,
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = cs.secondary),
+                shape = RoundedCornerShape(12.dp)) {
+                Text(if (noMoreReview) "没有可复习的了" else "再复习一组",
+                    Modifier.padding(vertical = 4.dp), fontSize = 15.sp)
+            }
         }
     }
 }
@@ -590,7 +613,7 @@ private fun AboutTab(vm: TrainViewModel) {
                 "5" to "点错可点「↩撤销」返回重标",
                 "6" to "按记忆曲线（1/2/4/7/15/30 天）安排复习",
                 "7" to "每日新卡学完自动打卡，可翻看打卡月历",
-                "8" to "学完可点「再学一组」继续加练（不影响打卡）")) {
+                "8" to "学完可点「再学一组」「再复习一组」继续加练（不影响打卡）")) {
                 Row(Modifier.padding(vertical = 4.dp)) {
                     Box(Modifier.size(24.dp).clip(RoundedCornerShape(8.dp)).background(cs.primaryContainer),
                         contentAlignment = Alignment.Center) {

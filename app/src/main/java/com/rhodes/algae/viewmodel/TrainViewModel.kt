@@ -54,21 +54,26 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     fun phylumCountFor(mode: String) = if (mode == "algae") phylumCountAlgae else phylumCountZoo
 
     // ── Card state ──
-    var currentItem by mutableStateOf<AlgaeItem?>(null); private set
-    var flipped by mutableStateOf(false); private set
     // 今日两组：先复习组（到期卡 配额×比例），后新卡组（未学卡 配额）
     // 组内「不认识」回本组队尾重练，认完（点认识）才出组
+    // 加练两队列：每日任务学完后手动追加，独立计数不占每日配额口径
     private var reviewQueue = emptyList<AlgaeItem>()
     private var newQueue = emptyList<AlgaeItem>()
+    private var extraReviewQueue = emptyList<AlgaeItem>()
+    private var extraNewQueue = emptyList<AlgaeItem>()
     private var queueDate = 0L
 
     // ── Undo ──
+    // 组别：0=今日复习 1=今日新卡 2=加练复习 3=加练新卡
     private data class Snap(val item: AlgaeItem, val wasKnown: Boolean,
                             val wasLevel: Int, val wasDue: Long,
-                            val marked: Boolean, val wasInReview: Boolean,
-                            val wasExtra: Boolean)
+                            val marked: Boolean, val group: Int)
     private val history = mutableListOf<Snap>()
     val canUndo get() = history.isNotEmpty()
+
+    // ── Card state ──
+    var currentItem by mutableStateOf<AlgaeItem?>(null); private set
+    var flipped by mutableStateOf(false); private set
 
     // ── Stats ──
     var knownCount by mutableIntStateOf(0); private set
@@ -79,22 +84,49 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     var newDone by mutableIntStateOf(0); private set
     var reviewTotal by mutableIntStateOf(0); private set
     var reviewDone by mutableIntStateOf(0); private set
-    // ── 加练（再学一组）独立计数：不污染每日新卡配额口径 ──
+    // ── 加练计数（再学一组/再复习一组）：独立于每日配额口径 ──
     var extraNewTotal by mutableIntStateOf(0); private set
     var extraNewDone by mutableIntStateOf(0); private set
-    private var extraIds = emptySet<String>()
+    var extraReviewTotal by mutableIntStateOf(0); private set
+    var extraReviewDone by mutableIntStateOf(0); private set
+
+    // 组别 → (队列, 计数器) 统一访问：消除散落各处的 when 分支
+    private fun queueOf(group: Int) = when (group) {
+        0 -> reviewQueue; 1 -> newQueue; 2 -> extraReviewQueue; else -> extraNewQueue
+    }
+
+    private fun setQueue(group: Int, q: List<AlgaeItem>) {
+        when (group) {
+            0 -> reviewQueue = q; 1 -> newQueue = q
+            2 -> extraReviewQueue = q; else -> extraNewQueue = q
+        }
+    }
+
+    private fun doneOf(group: Int) = when (group) {
+        0 -> reviewDone; 1 -> newDone; 2 -> extraReviewDone; else -> extraNewDone
+    }
+
+    private fun bumpDone(group: Int, delta: Int) {
+        when (group) {
+            0 -> reviewDone += delta
+            1 -> newDone += delta
+            2 -> extraReviewDone = (extraReviewDone + delta).coerceAtLeast(0)
+            else -> extraNewDone = (extraNewDone + delta).coerceAtLeast(0)
+        }
+    }
 
     // ── Filters（预留未用）──
     var filter by mutableStateOf("all"); private set
     var phylumFilter by mutableStateOf<String?>(null); private set
 
-    // ── 今日训练进度（训练页显示）──
-    val queueRemaining get() = reviewQueue.size + newQueue.size
+    // 今日训练进度（训练页显示）
+    val queueRemaining get() = reviewQueue.size + newQueue.size + extraReviewQueue.size + extraNewQueue.size
     val currentGroupLabel: String? get() = when {
         reviewQueue.isNotEmpty() -> "今日复习"
         // 每日配额完成后队列里剩下的都是加练卡
         newQueue.isNotEmpty() -> if (newDone >= newTotal) "加练新卡" else "今日新卡"
-        else -> null
+        extraReviewQueue.isNotEmpty() -> "加练复习"
+        else -> "加练新卡"
     }
 
     // ── 打卡 ──
@@ -230,7 +262,9 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         queueDate = t
         newTotal = newQueue.size; newDone = 0
         reviewTotal = reviewQueue.size; reviewDone = 0
-        extraNewTotal = 0; extraNewDone = 0; extraIds = emptySet()
+        extraNewTotal = 0; extraNewDone = 0
+        extraReviewTotal = 0; extraReviewDone = 0
+        extraReviewQueue = emptyList(); extraNewQueue = emptyList()
         saveQueue()
     }
 
@@ -244,6 +278,9 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         val r = loadQueue("queue_review_ids"); val n = loadQueue("queue_new_ids")
         if (r == null || n == null) { rebuildDailyQueue(); return }
         reviewQueue = r; newQueue = n
+        // 加练队列（V0.6.3 起持久化；旧数据缺失时为空不影响每日任务）
+        extraReviewQueue = loadQueue("queue_extra_review_ids") ?: emptyList()
+        extraNewQueue = loadQueue("queue_extra_new_ids") ?: emptyList()
         queueDate = prefs().getLong("queue_date", today()) // 恢复字段，防 saveQueue 写坏 queue_date
         newTotal = prefs().getInt("queue_new_total", 0)
         newDone = prefs().getInt("queue_new_done", 0)
@@ -251,13 +288,16 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         reviewDone = prefs().getInt("queue_review_done", 0)
         extraNewTotal = prefs().getInt("queue_extra_total", 0)
         extraNewDone = prefs().getInt("queue_extra_done", 0)
-        extraIds = loadQueue("queue_extra_ids")?.map { it.id }?.toSet() ?: emptySet()
+        extraReviewTotal = prefs().getInt("queue_extra_rv_total", 0)
+        extraReviewDone = prefs().getInt("queue_extra_rv_done", 0)
     }
 
     private fun saveQueue() {
         prefs().edit()
             .putString("queue_review_ids", JSONArray(reviewQueue.map { it.id }).toString())
             .putString("queue_new_ids", JSONArray(newQueue.map { it.id }).toString())
+            .putString("queue_extra_review_ids", JSONArray(extraReviewQueue.map { it.id }).toString())
+            .putString("queue_extra_new_ids", JSONArray(extraNewQueue.map { it.id }).toString())
             .putLong("queue_date", queueDate)
             .putInt("queue_new_total", newTotal)
             .putInt("queue_new_done", newDone)
@@ -265,66 +305,82 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
             .putInt("queue_review_done", reviewDone)
             .putInt("queue_extra_total", extraNewTotal)
             .putInt("queue_extra_done", extraNewDone)
-            .putString("queue_extra_ids", JSONArray(extraIds.toList()).toString())
+            .putInt("queue_extra_rv_total", extraReviewTotal)
+            .putInt("queue_extra_rv_done", extraReviewDone)
             .apply()
     }
 
     fun nextCard() {
         val next = reviewQueue.firstOrNull() ?: newQueue.firstOrNull()
+            ?: extraReviewQueue.firstOrNull() ?: extraNewQueue.firstOrNull()
         if (next == null) { currentItem = null; return }
         currentItem = next; flipped = false
     }
 
-    // 再学一组：今日任务学完后，从剩余新卡（未排期）再取一组加练
-    // 不影响当日打卡记录；返回实际加入的张数（0 = 图谱已全部学完）
-    fun addMoreCards(): Int {
+    // 加练通用：每日任务学完后从取卡函数追加一组；独立计数，不影响当日打卡记录
+    private fun appendExtra(take: (HashMap<String, Long>) -> List<AlgaeItem>,
+                            onAppend: (List<AlgaeItem>) -> Unit): Int {
         ensureToday() // 过夜后先滚到今天，避免以昨日状态为基底加练
         if (currentItem != null || reviewQueue.isNotEmpty() || newQueue.isNotEmpty()) return 0
         val mode = currentMode
         val dueMap = HashMap<String, Long>(allItems.size)
         allItems.forEach { dueMap[it.id] = prefsFor(mode).getLong("d_${it.id}", 0L) }
-        val remaining = allItems.filter { dueMap[it.id] == 0L }.shuffled().take(dailyQuota)
+        val remaining = take(dueMap)
         if (remaining.isEmpty()) return 0
         history.clear() // 加练是新一组，旧撤销记录会污染加练队列
-        newQueue = remaining
+        onAppend(remaining)
         queueDate = today()
-        extraNewTotal += remaining.size
-        extraIds = extraIds + remaining.map { it.id }.toSet()
         saveQueue()
         nextCard()
         return remaining.size
     }
+
+    // 再学一组：从未排期的新卡中取（0 = 图谱已全部学完）
+    fun addMoreCards(): Int =
+        appendExtra({ dueMap -> allItems.filter { dueMap[it.id] == 0L }.shuffled().take(dailyQuota) }) { remaining ->
+            newQueue = remaining
+            extraNewTotal += remaining.size
+            extraIds = extraIds + remaining.map { it.id }.toSet()
+        }
+
+    // 再复习一组：从今日未进入复习组的到期卡中取（0 = 没有更多到期的了）
+    fun addMoreReview(): Int =
+        appendExtra({ dueMap ->
+            allItems.filter { val d = dueMap[it.id] ?: 0L; d != 0L && d <= today() }
+                .shuffled().take(dailyQuota * reviewRatio)
+        }) { remaining ->
+            extraReviewQueue = remaining
+            extraReviewTotal += remaining.size
+        }
 
     fun flip() { flipped = !flipped }
 
     fun mark(known: Boolean) {
         ensureToday() // 常驻过夜后第一次操作：先把队列滚到今天
         val item = currentItem ?: return
+        val group = when {
+            reviewQueue.firstOrNull() == item -> 0
+            newQueue.firstOrNull() == item -> 1
+            extraReviewQueue.firstOrNull() == item -> 2
+            else -> 3
+        }
         val lv = level(item.id)
-        val inReview = reviewQueue.firstOrNull() == item // 当前卡属于今日复习组
-        val isExtra = !inReview && item.id in extraIds   // 当前卡属于加练组
-        history.add(Snap(item, isKnown(item.id), lv, dueDayFor(currentMode, item.id), known, inReview, isExtra))
+        history.add(Snap(item, isKnown(item.id), lv, dueDayFor(currentMode, item.id), known, group))
         val e = prefs().edit().putBoolean("k_${item.id}", known)
         if (known) {
             // 认识：等级 +1（封顶 5），按间隔表排下次复习，卡出组
             e.putInt("s_${item.id}", (lv + 1).coerceAtMost(5))
             e.putLong("d_${item.id}", today() + INTERVAL_DAYS[lv.coerceIn(0, 5)]) // coerceIn 防 prefs 损坏越界
-            if (inReview) reviewQueue = reviewQueue.drop(1) else newQueue = newQueue.drop(1)
+            setQueue(group, queueOf(group).drop(1))
         } else {
             // 不认识：等级归 0，明天再排，卡回本组队尾当天重练（认完为止）
             e.putInt("s_${item.id}", 0)
             e.putLong("d_${item.id}", today() + 1)
-            if (inReview) reviewQueue = reviewQueue.drop(1) + item else newQueue = newQueue.drop(1) + item
+            setQueue(group, queueOf(group).drop(1) + item)
         }
         e.apply()
-        // 只有「认识」才计入完成进度（不认识回队尾继续练）；加练计入加练计数
-        if (known) {
-            when {
-                inReview -> reviewDone++
-                isExtra -> extraNewDone++
-                else -> newDone++
-            }
-        }
+        // 只有「认识」才计入完成进度（不认识回队尾继续练）；加练组计各自的加练数
+        if (known) bumpDone(group, +1)
         updateStats()
         syncCheckIn()
         saveQueue(); nextCard()
@@ -340,21 +396,10 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
             .putLong("d_${s.item.id}", s.wasDue)
             .apply()
         // 回滚队列：移除「不认识」放回队尾的那份，再把卡放回本组队首
-        if (s.wasInReview) {
-            if (!s.marked) reviewQueue = reviewQueue.dropLast(1)
-            reviewQueue = listOf(s.item) + reviewQueue
-        } else {
-            if (!s.marked) newQueue = newQueue.dropLast(1)
-            newQueue = listOf(s.item) + newQueue
-        }
+        if (!s.marked) setQueue(s.group, queueOf(s.group).dropLast(1))
+        setQueue(s.group, listOf(s.item) + queueOf(s.group))
         currentItem = s.item; flipped = false
-        if (s.marked) { // 只有「认识」计过数，撤销时才回滚（按组别回滚对应计数）
-            when {
-                s.wasInReview -> reviewDone = (reviewDone - 1).coerceAtLeast(0)
-                s.wasExtra -> extraNewDone = (extraNewDone - 1).coerceAtLeast(0)
-                else -> newDone = (newDone - 1).coerceAtLeast(0)
-            }
-        }
+        if (s.marked) bumpDone(s.group, -1) // 只有「认识」计过数，撤销时才回滚
         updateStats()
         syncCheckIn()
         saveQueue()
