@@ -70,7 +70,7 @@ private fun BookCard(vm: TrainViewModel, mode: String, emoji: String, title: Str
     val known = items.count { vm.isKnownFor(mode, it.id) }
 
     Card(
-        modifier = Modifier.fillMaxWidth().clickable { vm.switchMode(mode); onClose() },
+        modifier = Modifier.fillMaxWidth().clickable(enabled = items.isNotEmpty()) { vm.switchMode(mode); onClose() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (selected) cs.primaryContainer else cs.surfaceVariant)
@@ -86,7 +86,11 @@ private fun BookCard(vm: TrainViewModel, mode: String, emoji: String, title: Str
                     Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = cs.onSurface)
                 }
                 Spacer(Modifier.height(4.dp))
-                Text("$phylumCount 门 · ${items.size} 图", fontSize = 13.sp, color = cs.outline)
+                if (items.isEmpty()) {
+                    Text("加载中…", fontSize = 13.sp, color = cs.outline)
+                } else {
+                    Text("$phylumCount 门 · ${items.size} 图", fontSize = 13.sp, color = cs.outline)
+                }
                 Spacer(Modifier.height(8.dp))
                 LinearProgressIndicator(
                     progress = { if (items.isEmpty()) 0f else known.toFloat() / items.size },

@@ -168,8 +168,14 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         nextCard()
     }
 
+    // ── 跨天守卫：App 常驻内存过夜后，任何训练操作先把队列滚到今天 ──
+    private fun ensureToday() {
+        if (queueDate != today()) rebuildDailyQueue()
+    }
+
     // 重建今日队列：到期复习卡（按到期先后）+ 今日新卡（配额内），先复习后新学
     private fun rebuildDailyQueue() {
+        history.clear() // 队列已换新（跨天/改设置），旧撤销快照会污染新队列
         val t = today()
         val mode = currentMode
         // 范围：整本书，或按过滤条件（预留：filter / phylumFilter）
@@ -260,6 +266,7 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     fun flip() { flipped = !flipped }
 
     fun mark(known: Boolean) {
+        ensureToday() // 常驻过夜后第一次操作：先把队列滚到今天
         val item = currentItem ?: return
         val lv = level(item.id)
         val inReview = reviewQueue.firstOrNull() == item // 当前卡属于今日复习组
@@ -337,7 +344,7 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     fun selectPhylum(p: String?) {
         phylumFilter = p
         history.clear() // 队列已重建，旧撤销记录会破坏新队列
-        initQueue()
+        rebuildDailyQueue(); nextCard()
     }
 
     // ── 打卡设置（改后立即重建今日队列，当天生效）──
@@ -386,10 +393,12 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         checkinVersion++
     }
 
-    // 今日新卡配额完成即打卡（复习卡不阻塞）
+    // 今日新卡配额完成即打卡（复习卡不阻塞）；图谱全部学完后，完成当日复习同样算打卡
     private fun checkCheckIn() {
         val t = today()
-        if (newTotal > 0 && newDone >= newTotal && !isCheckedIn(t)) addCheckIn(t)
+        val done = if (allItems.any { dueDayFor(currentMode, it.id) == 0L }) newDone >= newTotal && newTotal > 0
+                   else reviewTotal > 0 && reviewDone >= reviewTotal
+        if (done && !isCheckedIn(t)) addCheckIn(t)
     }
 
     // ── Stats ──
