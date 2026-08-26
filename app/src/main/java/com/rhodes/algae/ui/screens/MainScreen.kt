@@ -182,7 +182,7 @@ private fun TodayTaskProgress(vm: TrainViewModel) {
         if (vm.extraNewTotal > 0) {
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("⭐ 今日加练", fontSize = 12.sp, color = cs.outline)
+                Text("⭐ 加练新卡", fontSize = 12.sp, color = cs.outline)
                 Spacer(Modifier.weight(1f))
                 Text("${vm.extraNewDone}/${vm.extraNewTotal}", fontSize = 12.sp,
                     fontWeight = FontWeight.Bold, color = cs.onSurface)
