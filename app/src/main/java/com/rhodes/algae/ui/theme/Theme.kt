@@ -85,10 +85,10 @@ fun AlgaeTheme(content: @Composable () -> Unit) {
         ThemeState.Mode.Light -> false
         ThemeState.Mode.Dark -> true
     }
-    // 全局字体缩放：重写 LocalDensity.fontScale，所有 sp 字号随之缩放
+    // 全局字体缩放：重写 LocalDensity.fontScale（与系统字体缩放相乘，不覆盖用户的系统设置）
     val density = LocalDensity.current
     CompositionLocalProvider(
-        LocalDensity provides Density(density.density, ThemeState.fontScale)
+        LocalDensity provides Density(density.density, density.fontScale * ThemeState.fontScale)
     ) {
         MaterialTheme(
             colorScheme = if (dark) DarkScheme else LightScheme,

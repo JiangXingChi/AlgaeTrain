@@ -17,7 +17,7 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
 
     companion object {
         // 间隔表：等级 0→1 天，1→2 天，2→4 天，3→7 天，4→15 天，5→30 天（艾宾浩斯遗忘曲线复习节点）
-        val INTERVAL_DAYS = intArrayOf(1, 2, 4, 7, 15, 30)
+        private val INTERVAL_DAYS = intArrayOf(1, 2, 4, 7, 15, 30)
         val QUOTA_OPTIONS = listOf(10, 20) // 快捷档位，另有自定义
         const val DEFAULT_QUOTA = 20
         const val QUOTA_MIN = 1
@@ -45,11 +45,13 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
     val bookSelected get() = appPrefs.contains("selected_book")
 
     // ── Data ──
-    var allAlgaeItems = emptyList<AlgaeItem>(); private set
-    var allZooItems = emptyList<AlgaeItem>(); private set
+    // 必须是 Compose 可观察状态：否则首帧（书架自动弹出时）渲染后数据加载完成也不会刷新，
+    // 书架会永远停在「加载中…」（V0.6.5 真机实锤的缺陷）
+    var allAlgaeItems by mutableStateOf(emptyList<AlgaeItem>()); private set
+    var allZooItems by mutableStateOf(emptyList<AlgaeItem>()); private set
     val allItems get() = if (currentMode == "algae") allAlgaeItems else allZooItems
-    private var phylumCountAlgae = 0
-    private var phylumCountZoo = 0
+    private var phylumCountAlgae by mutableIntStateOf(0)
+    private var phylumCountZoo by mutableIntStateOf(0)
     val currentPhylumCount get() = if (currentMode == "algae") phylumCountAlgae else phylumCountZoo
     fun phylumCountFor(mode: String) = if (mode == "algae") phylumCountAlgae else phylumCountZoo
 
@@ -77,7 +79,7 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── Stats ──
     var knownCount by mutableIntStateOf(0); private set
-    var isLoading by mutableStateOf(false); private set
+    var isLoading by mutableStateOf(true); private set
 
     // ── 今日任务进度 ──
     var newTotal by mutableIntStateOf(0); private set
@@ -117,6 +119,9 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
 
     // 今日训练进度（训练页显示）
     val queueRemaining get() = reviewQueue.size + newQueue.size + extraReviewQueue.size + extraNewQueue.size
+    // 加练可用性（即时查询池子，不依赖 remember 缓存）：还有未排期新卡 / 还有当日到期未练卡
+    val hasMoreNew get() = allItems.any { dueDayFor(currentMode, it.id) == 0L }
+    val hasMoreReview get() = allItems.any { val d = dueDayFor(currentMode, it.id); d != 0L && d <= today() }
     val currentGroupLabel: String? get() = when {
         reviewQueue.isNotEmpty() -> "今日复习"
         newQueue.isNotEmpty() -> "今日新卡"
@@ -132,11 +137,13 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── Load ──
     fun loadData() {
-        if (allAlgaeItems.isNotEmpty()) return // 动物书缺失时不重复解析植物书
+        // 进程重建时 ViewModel 已持有数据（旋转/后台恢复），直接复位加载态即可
+        if (allAlgaeItems.isNotEmpty()) { isLoading = false; return }
         isLoading = true
         try {
-            // 恢复上次选择的图谱书（否则默认植物书）
-            currentMode = appPrefs.getString("selected_book", "algae") ?: "algae"
+            // 恢复上次选择的图谱书（否则默认植物书）；损坏值回退植物书，避免 prefsFor/displayPrefix 走错分支
+            currentMode = appPrefs.getString("selected_book", "algae")
+                ?.takeIf { it == "algae" || it == "zooplankton" } ?: "algae"
             val app = getApplication<Application>()
             allAlgaeItems = parseItems(app.assets.open("algae_data.json").reader().readText(), "algae")
             phylumCountAlgae = allAlgaeItems.map { it.phylum }.distinct().size
@@ -145,12 +152,18 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
                 phylumCountZoo = allZooItems.map { it.phylum }.distinct().size
             } catch (_: Exception) { Log.w("识浮游", "zooplankton_data.json missing") }
             initQueue()
-            // 清理 90 天前的按书记账（防无限增长）
+            cleanupLegacyZooKnownLeak() // V0.3.1 误写残留清理（两本书 id 无重叠，安全）
+            // 清理 90 天前的按书记账（防无限增长）；合并为单次写入
             val cutoff = today() - 90
-            appPrefs.all.keys.filter { key ->
+            val stale = appPrefs.all.keys.filter { key ->
                 (key.startsWith("checkin_done_") || key.startsWith("checkin_sealed_")) &&
                     (key.substringAfterLast('_').toLongOrNull() ?: 0L) < cutoff
-            }.forEach { appPrefs.edit().remove(it).apply() }
+            }
+            if (stale.isNotEmpty()) {
+                val e = appPrefs.edit()
+                stale.forEach { e.remove(it) }
+                e.apply()
+            }
         } catch (e: Exception) { Log.e("识浮游", "Load failed", e) }
         finally { isLoading = false }
     }
@@ -172,11 +185,29 @@ class TrainViewModel(application: Application) : AndroidViewModel(application) {
         if (p.contains("s_$id")) return
         val known = if (mode == "zooplankton") prefsAlgae.getBoolean("k_$id", false)
                     else p.getBoolean("k_$id", false)
-        if (known) p.edit().putInt("s_$id", 1).putLong("d_$id", today()).apply()
+        // k_ 与 (s_ >= 1) 必须同步：updateStats()/BookCard 的「已掌握」统计基于 k_，
+        // 漏写会导致老用户迁移后已掌握数显示为 0
+        if (known) p.edit()
+            .putInt("s_$id", 1).putLong("d_$id", today()).putBoolean("k_$id", true)
+            .apply()
+    }
+
+    // V0.3.1 缺陷遗留：动物的 k_ 曾被误写进 algae_train，且从未清理，
+    // 会导致植物书「已掌握」统计虚高（updateStats 遍历 k_==true）。
+    // 两本书 id 格式「门+属+序号」且无重叠（已验证），按 id 归属精确删除残留。
+    private fun cleanupLegacyZooKnownLeak() {
+        val zooIds = allZooItems.mapTo(HashSet()) { it.id }
+        if (zooIds.isEmpty()) return
+        val e = prefsAlgae.edit()
+        var dirty = false
+        prefsAlgae.all.keys.filter { it.startsWith("k_") }.forEach { key ->
+            if (key.removePrefix("k_") in zooIds) { e.remove(key); dirty = true }
+        }
+        if (dirty) e.apply()
     }
 
     fun switchMode(mode: String) {
-        if (mode == currentMode) { appPrefs.edit().putString("selected_book", mode).apply(); return }
+        if (mode == currentMode) return // 同书点选：无状态变化，无需写盘/重建
         currentMode = mode
         appPrefs.edit().putString("selected_book", mode).apply()
         history.clear()

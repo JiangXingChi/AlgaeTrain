@@ -163,6 +163,11 @@ private const val VERSION = "V0.6.0"
 - 修改配额/比例会**立即重建当日队列**（当天生效）；已学的卡等级已保存不受影响
 - 打卡计数（newDone/reviewDone）持久化在 `queue_*_done`，进程重启后断点续练计数不丢
 - `checkCheckIn()` 幂等：已打卡当天不再重复写（V0.6.3 起由 `syncCheckIn()` 取代，达标/回落双向对齐）
+- **k_ 与 (s_ ≥ 1) 必须同步**：`updateStats()`/书架「已掌握」按 `k_` 统计，`mark()` 双写，但旧版迁移（V0.3.1）曾漏写 → V0.6.6 起迁移三键同写
+- **V0.3.1 动物 k_ 误写入 algae_train 的残留**在 `cleanupLegacyZooKnownLeak()` 按 id 归属清理（两本书 id 无重叠，仅此一处可安全用 id 判断）
+- **加载态**：`isLoading` 初始 true（防首帧闪「今日任务完成」）；`loadData()` 早退路径须复位为 false（进程重建场景）
+- **字体缩放**必须乘 `LocalDensity.current.fontScale`，否则覆盖系统字体设置
+- **加练按钮可用性**直接查询 `hasMoreNew`/`hasMoreReview`（池子实时状态），勿用 remember 缓存——切 tab 返回会失真
 
 ### 图片与性能
 

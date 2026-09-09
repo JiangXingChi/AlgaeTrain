@@ -432,7 +432,7 @@ private fun MonthCalendar(vm: TrainViewModel) {
                             Box(Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp))
                                 .background(if (checked) cs.primary else Color.Transparent)
                                 .then(if (isToday)
-                                    Modifier.border(1.dp, cs.primary, RoundedCornerShape(8.dp))
+                                    Modifier.border(1.dp, cs.primary, RoundedCornerShape(16.dp))
                                 else Modifier),
                                 contentAlignment = Alignment.Center) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -484,23 +484,22 @@ private fun CompleteView(vm: TrainViewModel) {
             Text("✓ 今日已打卡", Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)) }
         Spacer(Modifier.height(20.dp))
-        // 主按钮：再学一组（剩余新卡）/ 再复习一组（当日顺延的到期卡），均不影响打卡
-        var noMoreNew by remember { mutableStateOf(false) }
-        var noMoreReview by remember { mutableStateOf(false) }
+        // 主按钮：再学一组（剩余新卡）/ 再复习一组（当日顺延的到期卡），均不影响打卡。
+        // 可用性直接查询池子：切 tab 返回等场景下状态不失真（不用 remember 缓存）
         Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { noMoreNew = vm.addMoreCards() == 0 }, enabled = !noMoreNew,
+            Button(onClick = { vm.addMoreCards() }, enabled = vm.hasMoreNew,
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = cs.primary),
                 shape = RoundedCornerShape(12.dp)) {
-                Text(if (noMoreNew) "新卡已学完 🎉" else "再学一组",
+                Text(if (vm.hasMoreNew) "再学一组" else "新卡已学完 🎉",
                     Modifier.padding(vertical = 4.dp), fontSize = 15.sp)
             }
-            Button(onClick = { noMoreReview = vm.addMoreReview() == 0 }, enabled = !noMoreReview,
+            Button(onClick = { vm.addMoreReview() }, enabled = vm.hasMoreReview,
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = cs.secondary),
                 shape = RoundedCornerShape(12.dp)) {
-                Text(if (noMoreReview) "没有可复习的了" else "再复习一组",
+                Text(if (vm.hasMoreReview) "再复习一组" else "没有可复习的了",
                     Modifier.padding(vertical = 4.dp), fontSize = 15.sp)
             }
         }
@@ -584,7 +583,7 @@ private fun FlashcardView(vm: TrainViewModel, item: AlgaeItem) {
         Spacer(Modifier.height(12.dp))
         if (vm.canUndo) {
             TextButton(onClick = { vm.undo() }, Modifier.fillMaxWidth()) {
-                Text("↩ 撤销上一张", fontSize = 14.sp, color = Color(0xFF1565C0)) }
+                Text("↩ 撤销上一张", fontSize = 14.sp, color = cs.primary) }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button({ vm.mark(true) }, Modifier.weight(1f),
