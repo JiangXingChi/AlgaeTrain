@@ -14,8 +14,8 @@ android {
         applicationId = "com.rhodes.algae"
         minSdk = 26
         targetSdk = 35
-        versionCode = 12
-        versionName = "V0.6.5"
+        versionCode = 13
+        versionName = "V0.6.6"
     }
 
     buildFeatures {

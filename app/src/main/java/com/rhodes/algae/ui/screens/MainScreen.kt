@@ -42,7 +42,7 @@ import com.rhodes.algae.viewmodel.TrainViewModel
 import java.time.LocalDate
 import java.time.YearMonth
 
-private const val VERSION = "V0.6.5"
+private const val VERSION = "V0.6.6"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

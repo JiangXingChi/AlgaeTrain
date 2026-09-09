@@ -125,11 +125,11 @@ SharedPreferences（不用 Room/DataStore）：
 改 `app/build.gradle.kts` 和 `MainScreen.kt` 中的 `VERSION` 常量（两处同步）：
 ```kotlin
 // app/build.gradle.kts
-versionCode = 8
-versionName = "V0.6.0"
+versionCode = 13
+versionName = "V0.6.6"
 
 // MainScreen.kt
-private const val VERSION = "V0.6.0"
+private const val VERSION = "V0.6.6"
 ```
 
 ### 添加新的图谱书
